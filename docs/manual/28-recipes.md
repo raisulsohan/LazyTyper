@@ -74,13 +74,12 @@ for Japanese, here).
 **The cursor and Bengali.** Bengali letters join: a consonant with its vowel sign (`মি`), a
 conjunct (`ক্ষ`) or a reph (`র্ম`) is one shape, and After Effects counts it as one unit. LazyTyper
 1.1.1 counted characters instead, so in a **Dynamic** rig the cursor stayed at the start of the line
-and in a **Stable** rig it trailed the text by about a word. The versions after 1.1.1 (on GitHub
-now, in the next release) count units like After Effects does: the cursor sits after the last letter
-in both rigs, as in the animation above, and a Stable rig shows a joined letter whole as soon as its
-first character is typed. The
-same goes for Devanagari and the other Indian scripts. A rig made with 1.1.1 or earlier on such text
-says "Made by an earlier LazyTyper" in the panel: click **Refresh** once. Japanese, which does not
-join its characters, was always right.
+and in a **Stable** rig it trailed the text by about a word. Since 1.1.2 LazyTyper counts units like
+After Effects does: the cursor sits after the last letter in both rigs, as in the animation above,
+and a Stable rig shows a joined letter whole as soon as its first character is typed. The same goes
+for Devanagari and the other Indian scripts. A rig made with 1.1.1 or earlier on such text says
+"Made by an earlier LazyTyper" in the panel: click **Refresh** once. Japanese, which does not join
+its characters, was always right.
 
 ## Mixed fonts, sizes and colours
 

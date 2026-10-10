@@ -11,7 +11,7 @@
   var engine = (typeof lazyTyperRun === "function") ? lazyTyperRun :
     (typeof require === "function" ? require("./engine.js").lazyTyperRun : null);
 
-  var VERSION = "1.1.1";
+  var VERSION = "1.1.2";
   var TAG = "LazyTyper";
 
   /* Controls on the text layer, in the order they appear in Effect Controls. */

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.2 - 2026-10-11
 
 - Bengali (and Devanagari and the other Indian scripts): the cursor follows the text. After
   Effects counts a joined letter (a consonant with its vowel sign, a conjunct, a reph) as one
