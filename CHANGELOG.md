@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-10-10
 
 From trying 1.0.0 the way a designer would:
 

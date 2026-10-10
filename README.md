@@ -3,7 +3,7 @@
 **Natural typing animation for After Effects, in one click.** Select a text layer, press
 *Create Typing Rig*, and it types on like a person would: faster through common words,
 slower on capitals and symbols, a breath after a comma, a longer one after a full stop,
-with a blinking cursor that follows the text. **Version 1.0** · free · MIT licence · one of
+with a blinking cursor that follows the text. **Version 1.1** · free · MIT licence · one of
 Raisul Sohan's Lazy tools.
 
 Other typing rigs give every character the same time, which looks robotic. LazyTyper sets
@@ -34,7 +34,7 @@ rhythm stays natural, and it stays natural when you change the text.
 
 ## Install
 
-1. Download `LazyTyper-v1.0.zip` from the [releases page](https://github.com/raisulsohan/LazyTyper/releases) and unzip it.
+1. Download `LazyTyper-v1.1.zip` from the [releases page](https://github.com/raisulsohan/LazyTyper/releases) and unzip it.
 2. Close After Effects.
 3. Windows: double-click **Install LazyTyper.bat**. macOS: double-click **Install LazyTyper (macOS).command**.
 4. Start After Effects and open **Window › Extensions › LazyTyper**.
