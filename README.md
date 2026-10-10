@@ -34,7 +34,7 @@ rhythm stays natural, and it stays natural when you change the text.
 
 ## Install
 
-1. Download `LazyTyper-v1.zip` from the [releases page](https://github.com/raisulsohan/LazyTyper/releases) and unzip it.
+1. Download `LazyTyper-v1.0.zip` from the [releases page](https://github.com/raisulsohan/LazyTyper/releases) and unzip it.
 2. Close After Effects.
 3. Windows: double-click **Install LazyTyper.bat**. macOS: double-click **Install LazyTyper (macOS).command**.
 4. Start After Effects and open **Window › Extensions › LazyTyper**.

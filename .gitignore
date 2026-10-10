@@ -16,3 +16,6 @@ tools/vendor/
 # A release is built outside the repository (see tools/package-zxp.mjs), so
 # nothing signed lands here. This is a safety net.
 *.zxp
+
+# OpenSSL's random seed, left behind by ZXPSignCmd.
+.rnd
