@@ -43,8 +43,8 @@ if [ ! -f "${DEST}/CSXS/manifest.xml" ]; then
   exit 1
 fi
 
-# LazyTyper 1.0 was installed by copying its folder here as "LazyTyper". Two
-# panels with one ID clash, so that copy is moved aside - not deleted.
+# A copy unpacked or linked by hand as "LazyTyper" has the same extension ID,
+# and two panels with one ID clash, so that copy is moved aside - not deleted.
 if [ -f "${LEGACY}/CSXS/manifest.xml" ] && grep -q "com.sohan.LazyTyper" "${LEGACY}/CSXS/manifest.xml"; then
   if [ -L "${LEGACY}" ]; then
     rm "${LEGACY}"

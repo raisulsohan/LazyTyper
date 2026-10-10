@@ -90,9 +90,9 @@ if not errorlevel 1 (
 exit /b 0
 
 :move_legacy_copy
-rem LazyTyper 1.0 was installed by copying its folder here as "LazyTyper".
-rem Two panels with one ID clash, so that copy is moved out of the way -
-rem not deleted - to %APPDATA%\Adobe\CEP\LazyTyper-old-copy.
+rem A copy unpacked or linked by hand as "LazyTyper" has the same extension
+rem ID, and two panels with one ID clash, so that copy is moved out of the
+rem way - not deleted - to %APPDATA%\Adobe\CEP\LazyTyper-old-copy.
 if not exist "%LEGACY%\CSXS\manifest.xml" exit /b 0
 findstr /c:"com.sohan.LazyTyper" "%LEGACY%\CSXS\manifest.xml" >nul
 if errorlevel 1 exit /b 0
