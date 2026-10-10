@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LazyTyper</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app" id="app">
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><span>T</span><i class="caret"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Lazy<b>Typer</b></div>
+          <div class="brand-sub">Natural typing for After Effects</div>
+        </div>
+      </div>
+      <div class="pill" id="enginePill" title="Expression engine of this project">JS</div>
+    </header>
+
+    <!-- What is selected -->
+    <section class="status" id="status">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="status-body">
+        <div class="status-title" id="statusTitle">Select a text layer</div>
+        <div class="status-sub" id="statusSub">Pick one or more text layers in a composition.</div>
+      </div>
+      <div class="status-meter" id="statusMeter"><div class="status-meter-fill" id="statusMeterFill"></div></div>
+    </section>
+
+    <!-- 1. Create -->
+    <section class="card card--violet" id="cardCreate">
+      <div class="card-head">
+        <span class="card-num">1</span>
+        <span class="card-title">Create rig</span>
+      </div>
+      <div class="seg" id="rigType">
+        <div class="seg-btn" data-value="dynamic">
+          <div class="seg-name">Dynamic</div>
+          <div class="seg-note">Live layout</div>
+        </div>
+        <div class="seg-btn" data-value="stable">
+          <div class="seg-name">Stable</div>
+          <div class="seg-note">Locked layout</div>
+        </div>
+      </div>
+      <div class="rig-notes" id="rigNotes"></div>
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">Typing style</span>
+          <select id="createTyping"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Cursor</span>
+          <select id="createCursor"></select>
+        </label>
+      </div>
+      <div class="btn btn--primary btn--violet" id="btnCreate">Create Typing Rig</div>
+    </section>
+
+    <!-- 2. Typing speed -->
+    <section class="card card--cyan" id="cardSpeed">
+      <div class="card-head">
+        <span class="card-num">2</span>
+        <span class="card-title">Typing speed</span>
+        <span class="card-hint" id="speedHint"></span>
+      </div>
+      <div class="field-row">
+        <label class="field field--grow">
+          <span class="field-label">Preset</span>
+          <select id="typingPreset"></select>
+        </label>
+        <div class="btn btn--small" id="btnApplyTyping" title="Set the selected rig's speed controls to this preset">Apply</div>
+      </div>
+      <div class="rhythm" id="rhythm">
+        <canvas id="rhythmCanvas" width="600" height="56"></canvas>
+        <div class="rhythm-legend">
+          <span><i class="sw sw--letters"></i>Letters</span>
+          <span><i class="sw sw--numbers"></i>Numbers</span>
+          <span><i class="sw sw--punct"></i>Punctuation</span>
+          <span><i class="sw sw--spaces"></i>Spaces</span>
+          <span class="rhythm-total" id="rhythmTotal"></span>
+        </div>
+      </div>
+      <div class="field-row field-row--tight">
+        <div class="btn btn--small btn--ghost" id="btnSaveTyping" title="Save the selected rig's speed controls as a preset">Save as preset&#8230;</div>
+        <div class="btn btn--small btn--ghost btn--danger" id="btnDeleteTyping" title="Delete this saved preset">Delete</div>
+      </div>
+      <div class="save-row hidden" id="saveTypingRow">
+        <input type="text" id="saveTypingName" placeholder="Preset name" maxlength="40">
+        <div class="btn btn--small btn--cyan" id="btnSaveTypingOk">Save</div>
+        <div class="btn btn--small btn--ghost" id="btnSaveTypingCancel">Cancel</div>
+      </div>
+    </section>
+
+    <!-- 3. Timeline -->
+    <section class="card card--green" id="cardTimeline">
+      <div class="card-head">
+        <span class="card-num">3</span>
+        <span class="card-title">At the playhead</span>
+      </div>
+      <div class="grid2">
+        <div class="btn btn--tile" id="btnStart" title="Keyframe Typing on at the current time">
+          <span class="tile-icon">&#9654;</span><span>Start typing</span>
+        </div>
+        <div class="btn btn--tile" id="btnStop" title="Keyframe Typing off at the current time">
+          <span class="tile-icon">&#10074;&#10074;</span><span>Stop typing</span>
+        </div>
+      </div>
+      <div class="inline-row">
+        <div class="btn btn--small btn--green" id="btnPause" title="Add a Pause marker: typing waits while it lasts">Add pause</div>
+        <span class="inline-text">for</span>
+        <input type="number" id="pauseFrames" value="15" min="1" max="9999">
+        <span class="inline-text">frames</span>
+      </div>
+      <div class="inline-row">
+        <div class="btn btn--small btn--green" id="btnErase" title="Stop typing and delete characters, backspace by backspace">Erase</div>
+        <select id="eraseWhat">
+          <option value="all">everything</option>
+          <option value="some">the last</option>
+        </select>
+        <input type="number" id="eraseChars" value="5" min="1" max="9999" class="hidden">
+        <span class="inline-text" id="eraseCharsLabel"></span>
+        <span class="inline-text">over</span>
+        <input type="number" id="eraseFrames" value="12" min="1" max="9999">
+        <span class="inline-text">frames</span>
+      </div>
+    </section>
+
+    <!-- 4. Rig -->
+    <section class="card card--amber" id="cardRig">
+      <div class="card-head">
+        <span class="card-num">4</span>
+        <span class="card-title">Rig</span>
+      </div>
+      <div class="grid3">
+        <div class="btn btn--tile" id="btnRefresh" title="Measure the text again and rebuild the expressions (after changing font, size, layout or Stable text)">
+          <span class="tile-icon">&#8635;</span><span>Refresh</span>
+        </div>
+        <div class="btn btn--tile" id="btnBake" title="Turn the typing into keyframes you can move by hand. Shift+click: unbake">
+          <span class="tile-icon">&#9670;</span><span id="bakeLabel">Bake</span>
+        </div>
+        <div class="btn btn--tile btn--danger" id="btnRemove" title="Remove the rig, its cursor and its guide">
+          <span class="tile-icon">&#10005;</span><span>Remove</span>
+        </div>
+      </div>
+      <div class="note" id="bakeNote">Bake keyframes are coloured by what is typed. Shift+click Bake to unbake.</div>
+    </section>
+
+    <!-- 5. Cursor -->
+    <section class="card card--pink" id="cardCursor">
+      <div class="card-head">
+        <span class="card-num">5</span>
+        <span class="card-title">Cursor</span>
+      </div>
+      <div class="cursor-previews" id="cursorPreviews"></div>
+      <div class="field-row">
+        <label class="field field--grow">
+          <span class="field-label">Preset</span>
+          <select id="cursorPreset"></select>
+        </label>
+        <div class="btn btn--small" id="btnApplyCursor" title="Set the selected rig's cursor to this preset">Apply</div>
+      </div>
+      <div class="field-row field-row--tight">
+        <div class="btn btn--small btn--ghost" id="btnAddCursor" title="Give the selected rig a cursor layer">Add cursor</div>
+        <div class="btn btn--small btn--ghost" id="btnSaveCursor" title="Save the selected rig's cursor as a preset">Save as preset&#8230;</div>
+        <div class="btn btn--small btn--ghost btn--danger" id="btnDeleteCursor" title="Delete this saved preset">Delete</div>
+      </div>
+      <div class="save-row hidden" id="saveCursorRow">
+        <input type="text" id="saveCursorName" placeholder="Preset name" maxlength="40">
+        <div class="btn btn--small btn--pink" id="btnSaveCursorOk">Save</div>
+        <div class="btn btn--small btn--ghost" id="btnSaveCursorCancel">Cancel</div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="card card--muted" id="cardSettings">
+      <div class="card-head card-head--toggle" id="settingsToggle">
+        <span class="card-num">&#9881;</span>
+        <span class="card-title">Settings</span>
+        <span class="chev" id="settingsChev">&#9662;</span>
+      </div>
+      <div class="settings hidden" id="settingsBody">
+        <div class="field-label">Baked keyframe colours</div>
+        <div class="label-grid" id="labelGrid"></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span id="footVersion">LazyTyper 1.0.0</span>
+      <span class="dot">&#183;</span>
+      <a href="#" id="footLink">Raisul Sohan</a>
+    </footer>
+  </div>
+
+  <div class="toast hidden" id="toast"><span id="toastText"></span></div>
+
+  <script src="../lib/CSInterface.js"></script>
+  <script src="engine.js"></script>
+  <script src="rig.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

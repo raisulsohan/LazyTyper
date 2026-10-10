@@ -1,0 +1,20 @@
+{
+  "name": "lazytyper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LazyTyper - natural typing rigs for After Effects: one click, a realistic typing rhythm, a blinking cursor, presets, pauses, erasing and baking to keyframes.",
+  "author": "Raisul Sohan",
+  "license": "MIT",
+  "homepage": "https://github.com/raisulsohan/LazyTyper",
+  "scripts": {
+    "check": "node tools/ascii.mjs host/host.jsx client/engine.js client/rig.js && node tools/dump-expressions.mjs && cscript //Nologo tools\\check-extendscript.js",
+    "test": "npm run check && node tools/test-engine.mjs",
+    "test:ae": "node tools/ae-test.mjs",
+    "test:ui": "node tools/ui-test.mjs",
+    "dev:link": "node tools/install-dev.mjs",
+    "dev:unlink": "node tools/install-dev.mjs --remove",
+    "preview": "node tools/serve-panel.mjs",
+    "release:cert": "node tools/get-zxpsigncmd.mjs && node tools/package-zxp.mjs --cert",
+    "release": "npm test && node tools/get-zxpsigncmd.mjs && node tools/package-zxp.mjs"
+  }
+}

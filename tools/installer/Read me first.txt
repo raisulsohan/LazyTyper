@@ -1,0 +1,99 @@
+============================================================
+  LAZYTYPER
+  Natural typing animation for After Effects, in one click
+============================================================
+
+WHAT YOU NEED
+  - Windows 10 / 11, or macOS
+  - Adobe After Effects 2021 or newer (made and tested in 2026)
+
+
+------------------------------------------------------------
+INSTALL
+------------------------------------------------------------
+  1. Unzip this download anywhere. The Desktop is fine.
+  2. Close After Effects if it is open.
+  3. Windows: double-click  "Install LazyTyper.bat"
+     macOS:   double-click  "Install LazyTyper (macOS).command"
+              (if macOS refuses, right-click it and choose Open)
+  4. Wait for "Installed", then press a key.
+  5. Start After Effects and open:
+       Window > Extensions > LazyTyper
+
+  The panel is signed, so nothing else needs installing and
+  no Adobe setting has to be changed. Updating from an older
+  LazyTyper? Just run the installer: your presets are kept.
+
+
+------------------------------------------------------------
+QUICK START
+------------------------------------------------------------
+  1. Select a text layer (or several).
+  2. In "Create rig" pick Dynamic or Stable, a typing style
+     and a cursor, then click "Create Typing Rig".
+  3. Press play. The text types on with natural pauses, a
+     blinking cursor follows it.
+
+  Dynamic: the text wraps word by word and re-centres as it
+           types; one font style; a hidden guide layer drives
+           the cursor. Text edits need no refresh.
+  Stable:  keeps mixed fonts, sizes and colours; the layout
+           is fixed while it types. Click Refresh after
+           changing the text.
+
+  The controls are on the text layer in Effect Controls.
+  Every one of them can be keyframed:
+    Typing, Start at Character   when typing runs, and from
+                                 where (lower Start at
+                                 Character while Typing is
+                                 off to delete)
+    Speed Mode                   Frames Per Character or
+                                 Total Duration (frames)
+    Variance, Random Seed        how often a key comes late
+    Slow: ...                    100% = twice as long
+    Fast: ...                    100% = twice as fast
+    Slow/Fast: ...               + slower, - faster
+    Characters Shown             the result (bake target)
+
+  The cursor layer has its own controls: colour, blink,
+  width, top, bottom, rounded corners, offsets.
+
+
+------------------------------------------------------------
+THE PANEL
+------------------------------------------------------------
+  Typing speed   presets (Very Fast, Average, Hunt & Peck and
+                 your own), with a preview of the rhythm
+  At the playhead
+                 Start typing / Stop typing keyframes, Add
+                 pause (a "Pause" layer marker; drag its end),
+                 Erase everything or the last N characters
+  Rig            Refresh (after font, size, layout or Stable
+                 text changes), Bake to keyframes coloured by
+                 what is typed (Shift+click: unbake), Remove
+  Cursor         presets (Vertical, Underscore, Box and your
+                 own), add a cursor to a rig without one
+
+
+------------------------------------------------------------
+IF SOMETHING IS WRONG
+------------------------------------------------------------
+  The panel is blank
+      Run "Fix a blank panel.bat" (Windows), restart After
+      Effects.
+
+  The panel is not in Window > Extensions
+      Restart After Effects. Adobe only looks for panels
+      when it starts.
+
+  The cursor sits in the wrong place
+      Select the layer and click Refresh in the Rig card
+      (after changing font, size, tracking or the box; for
+      Stable rigs also after changing the text).
+
+  It feels slow on very long texts
+      Bake it, or switch the project to the JavaScript
+      expression engine (File > Project Settings >
+      Expressions): it is several times faster.
+
+  Questions: lettertosohan@gmail.com
