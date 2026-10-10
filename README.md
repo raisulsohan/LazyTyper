@@ -6,6 +6,10 @@ slower on capitals and symbols, a breath after a comma, a longer one after a ful
 with a blinking cursor that follows the text. **Version 1.1** · free · MIT licence · one of
 Raisul Sohan's Lazy tools.
 
+![LazyTyper in After Effects: a search-bar text layer gets a typing rig in one click and types on with a natural rhythm with the cursor right after the last letter; the Hunt & Peck and Very Fast presets retype it at their speeds; "after effects" is erased and "premiere pro" typed in its place; Bake fills the timeline with keyframes coloured by character type](docs/demo/lazytyper-demo.gif)
+
+The same animation with a player (pause, frame by frame, typing sounds): [docs/demo/lazytyper-demo.html](docs/demo/lazytyper-demo.html), download it and open it in a browser.
+
 Other typing rigs give every character the same time, which looks robotic. LazyTyper sets
 a base speed and lets each character's neighbours speed it up or slow it down, so the
 rhythm stays natural, and it stays natural when you change the text.
