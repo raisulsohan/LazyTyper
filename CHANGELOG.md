@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 - 2026-10-11
+
+- After Erase with no typing later, a Dynamic rig's status counted "0 / 0 characters" and
+  the rhythm preview fell back to the sample text. The panel now reads the rig's full text
+  from its own expression, so it says "0 / 25 characters" and previews the real text. Rigs
+  made with an earlier version get this after one Refresh.
+
 ## 1.1.0 - 2026-10-10
 
 From trying 1.0.0 the way a designer would:

@@ -7,7 +7,7 @@
  * file only builds and changes layers. It never saves the project.
  */
 var LT = (function () {
-  var VERSION = "1.1.0";
+  var VERSION = "1.1.1";
   var CURSOR_TAG = "LazyTyper cursor";
   var GUIDE_TAG = "LazyTyper guide";
   var ANIMATOR = "LazyTyper";
