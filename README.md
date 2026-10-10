@@ -10,6 +10,8 @@ Raisul Sohan's Lazy tools.
 
 The same animation with a player (pause, frame by frame, typing sounds): [docs/demo/lazytyper-demo.html](docs/demo/lazytyper-demo.html), download it and open it in a browser.
 
+**The manual**, a tutorial for every option with pictures and animations from After Effects: [docs/manual](docs/manual/README.md).
+
 Other typing rigs give every character the same time, which looks robotic. LazyTyper sets
 a base speed and lets each character's neighbours speed it up or slow it down, so the
 rhythm stays natural, and it stays natural when you change the text.
