@@ -110,6 +110,18 @@ let i2 = await waitInfo((i) => i.layers[0] && i.layers[0].rig === "dynamic" && i
 check("Headline has a Dynamic rig with a cursor", i2.layers[0].rig === "dynamic" && i2.layers[0].cursor);
 await screenshot("dynamic-created");
 
+// 2b. A bigger font makes the measured cursor stale: the panel asks for Refresh, Refresh fixes it.
+fs.writeFileSync(path.join(tmp, "font.txt"), "Headline\n120");
+aeScript("set-font-size.jsx", "font.json", 60);
+let i2b = await waitInfo((i) => i.layers[0] && i.layers[0].needsRefresh, "panel asks for Refresh after a font change");
+check("panel asks for Refresh after a font change", i2b.layers[0].needsRefresh);
+check("Refresh button stands out", await panel.evaluate("document.getElementById('btnRefresh').classList.contains('is-attention')"));
+await screenshot("needs-refresh");
+await click("status");
+await waitToast();
+let i2c = await waitInfo((i) => i.layers[0] && !i.layers[0].needsRefresh, "Refresh clears the request");
+check("Refresh clears the request", !i2c.layers[0].needsRefresh);
+
 // 3. A Stable rig with the Box cursor on the paragraph.
 select("Paragraph", "0");
 await waitInfo((i) => i.layers[0] && i.layers[0].name === "Paragraph", "panel follows the selection");
@@ -176,7 +188,7 @@ await panel.evaluate("document.getElementById('eraseWhat').value = 'all', 1");
 select("Headline", "3");
 await waitInfo((i) => i.time > 2.9, "playhead at 3 s");
 await click("btnErase");
-check("erase", /Erase/.test(await waitToast()));
+check("erase", /backspace away/.test(await waitToast()));
 select("Headline", "3.7");
 let i11 = await waitInfo((i) => i.time > 3.6, "playhead at 3.7 s");
 check("erased by 3.7 s", i11.layers[0].shown === 0, i11.layers[0].shown);

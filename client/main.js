@@ -254,8 +254,10 @@
       st.className = "status " + (rig.baked ? "status--baked" : "status--rig");
       title.textContent = rig.name + (layers.length > 1 ? "  +" + (layers.length - 1) + " more" : "");
       var kind = rig.rig === "dynamic" ? "Dynamic" : "Stable";
-      sub.textContent = kind + " rig" + (rig.baked ? " · baked" : "") + (rig.cursor ? " · cursor" : "") +
+      sub.textContent = rig.needsRefresh ? "⚠ The text or its style changed: click here to refresh the cursor." :
+        kind + " rig" + (rig.baked ? " · baked" : "") + (rig.cursor ? " · cursor" : "") +
         (rig.length !== undefined ? " · " + (rig.shown || 0) + " / " + rig.length + " characters" : "");
+      if (rig.needsRefresh) st.className += " status--refresh";
       if (rig.length) fill.style.width = Math.min(100, Math.round((rig.shown || 0) / rig.length * 100)) + "%";
     } else {
       st.className = "status status--text";
@@ -269,6 +271,7 @@
     eng.title = legacy ? "This project uses the Legacy ExtendScript expression engine. LazyTyper works with it, but the JavaScript engine (File > Project Settings > Expressions) is several times faster." :
       "Expression engine: JavaScript";
     $("bakeLabel").textContent = rig && rig.baked ? "Unbake" : "Bake";
+    $("btnRefresh").classList.toggle("is-attention", !!(rig && rig.needsRefresh));
     var hasRig = !!rig;
     var hasText = layers.length > 0;
     $("cardCreate").classList.toggle("is-disabled", !hasText);
@@ -648,13 +651,20 @@
     });
     on("btnErase", "click", function () {
       var all = $("eraseWhat").value === "all";
-      simple("btnErase", "eraseHere", { all: all, chars: num("eraseChars", 5), frames: num("eraseFrames", 12) },
-        "Erase keyframed on Start at Character.");
+      var chars = num("eraseChars", 5);
+      var frames = num("eraseFrames", 12);
+      simple("btnErase", "eraseHere", { all: all, chars: chars, frames: frames },
+        "Typing stops here and " + (all ? "everything" : "the last " + chars + " characters") +
+        " backspace away over " + frames + " frames. Start typing again later to type on.");
     });
     on("btnRefresh", "click", function () {
       simple("btnRefresh", "refreshRig", {}, function (res) { return "Refreshed " + (res.done || []).join(", ") + "."; });
     });
     on("btnBake", "click", onBake);
+    on("status", "click", function () {
+      var rig = firstRig();
+      if (rig && rig.needsRefresh) $("btnRefresh").click();
+    });
     on("btnRemove", "click", function () {
       simple("btnRemove", "removeRig", {}, function (res) { return "Removed the rig from " + (res.done || []).join(", ") + "."; });
     });

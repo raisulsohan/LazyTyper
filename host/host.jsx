@@ -686,15 +686,71 @@ var LT = (function () {
       .property("ADBE Vector Shape - Group").property("ADBE Vector Shape");
     var fill = cursor.property("ADBE Root Vectors Group").property("Cursor").property("ADBE Vectors Group")
       .property("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color");
+    var stamp = MEASURED + signature(layer, type) + "\n";
     if (type === "stable") {
-      tr.property("ADBE Position").expression = expr.stableCursorPosition.replace("/*LT_DATA*/", stable.data);
+      tr.property("ADBE Position").expression = stamp + expr.stableCursorPosition.replace("/*LT_DATA*/", stable.data);
       path.expression = expr.cursorPath.replace("/*LT_SIZES*/", stable.sizes);
     } else {
-      tr.property("ADBE Position").expression = expr.dynamicCursorPosition.replace("/*LT_METRICS*/", metricsLine(m));
+      tr.property("ADBE Position").expression = stamp + expr.dynamicCursorPosition.replace("/*LT_METRICS*/", metricsLine(m));
       path.expression = expr.cursorPath.replace("/*LT_SIZES*/", "[0," + fmt(m.size) + "]");
     }
     fill.expression = expr.cursorColor;
     tr.property("ADBE Opacity").expression = expr.cursorOpacity;
+  }
+
+  /*
+   * What a cursor's measurements depend on, as a short fingerprint: the text's first style
+   * (font, size, tracking, leading, alignment, box) and, for a Stable rig, the text of every
+   * Source Text keyframe. It is stored at the top of the cursor's Position expression when
+   * the cursor is measured; when it stops matching, the panel asks for a Refresh.
+   */
+  var MEASURED = "// measured:";
+  var STYLE_KEYS = ["font", "fontSize", "tracking", "leading", "autoLeading", "justification", "fauxBold",
+    "fauxItalic", "allCaps", "smallCaps", "horizontalScale", "verticalScale", "baselineShift", "boxText"];
+
+  function styleOf(doc) {
+    var parts = [];
+    for (var i = 0; i < STYLE_KEYS.length; i++) {
+      try {
+        parts.push(String(doc[STYLE_KEYS[i]]));
+      } catch (e) {
+        parts.push("-");
+      }
+    }
+    try {
+      if (doc.boxText) parts.push(String(doc.boxTextSize), String(doc.boxTextPos));
+    } catch (e2) {}
+    return parts.join("|");
+  }
+
+  function hash(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) & 0x7fffffff;
+    return h.toString(36);
+  }
+
+  function signature(layer, type) {
+    var st = sourceText(layer);
+    if (type === "dynamic") {
+      /* The guide follows the text by itself; only the style matters. */
+      var at = Math.max(layer.inPoint, layer.outPoint - layer.containingComp.frameDuration);
+      return hash(styleOf(st.valueAtTime(at, false)));
+    }
+    var times = textTimes(layer);
+    var s = "";
+    for (var i = 0; i < times.length; i++) {
+      var d = st.valueAtTime(times[i], false);
+      s += styleOf(d) + "#" + d.text + "\n";
+    }
+    return hash(s);
+  }
+
+  /* True when the cursor was measured for a style or text the layer no longer has. */
+  function needsRefresh(layer, type, cursor) {
+    var e = cursor.property("ADBE Transform Group").property("ADBE Position").expression;
+    if (e.indexOf(MEASURED) !== 0) return false;
+    var stored = e.substring(MEASURED.length, e.indexOf("\n"));
+    return stored !== signature(layer, type);
   }
 
   function makeCursor(layer, type, opts, guide) {
@@ -762,7 +818,13 @@ var LT = (function () {
       var type = rigType(l);
       var cs = type ? control(l, COUNT) : null;
       var info = { name: l.name, index: l.index, rig: type, baked: !!(cs && cs.numKeys > 0 && cs.expression === "") };
-      if (type) info.cursor = !!findCursor(l);
+      var cursor = type ? findCursor(l) : null;
+      if (type) info.cursor = !!cursor;
+      if (a.detail && cursor) {
+        try {
+          info.needsRefresh = needsRefresh(l, type, cursor);
+        } catch (eR) {}
+      }
       if (a.detail) {
         var full = "";
         try {

@@ -88,6 +88,8 @@ Bottom Right, Bottom Left, X Offset, Y Offset.
 - **At the playhead**: *Start typing*, *Stop typing*, *Add pause*, *Erase* (everything or
   the last N characters over N frames).
 - **Rig**: *Refresh*, *Bake* (Shift+click: unbake), *Remove* (the cursor and guide go too).
+  When the font, size, layout or (Stable) text changed since the cursor was measured, the top
+  of the panel turns amber and says so; click it to refresh.
 - **Cursor**: apply or save cursor presets, add a cursor to a rig that has none.
 - **Settings**: the label colours baked keyframes get.
 

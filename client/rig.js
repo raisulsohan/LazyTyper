@@ -19,7 +19,7 @@
     { name: "Typing", type: "checkbox", value: 1, group: "typing" },
     { name: "Start at Character", type: "slider", value: 0, group: "typing" },
     { name: "Speed Mode", type: "dropdown", items: ["Frames Per Character", "Total Duration"], value: 1, group: "speed" },
-    { name: "Frames Per Character", type: "slider", value: 2.5, group: "speed" },
+    { name: "Frames Per Character", type: "slider", value: 3, group: "speed" },
     { name: "Total Duration", type: "slider", value: 90, group: "speed" },
     { name: "Variance", type: "slider", value: 35, group: "speed" },
     { name: "Random Seed", type: "slider", value: 1, group: "speed" },
@@ -89,8 +89,10 @@
   }
 
   var TYPING_PRESETS = [
-    { name: "Very Fast", builtIn: true, values: preset(1.2, 15, [30, 30, 60, 20, 150, 300, 250, 20, 0, 10], [40, 40, 30, 30], [-20, 10, 0]) },
-    { name: "Average", builtIn: true, values: preset(2.5, 35, [60, 60, 120, 40, 250, 500, 400, 50, 30, 40], [30, 30, 20, 20], [0, 20, 10]) },
+    /* At 30 fps: about 14, 7 and 2.5 characters a second (a very fast typist, an everyday
+       one sped up a little for the screen, and two fingers). */
+    { name: "Very Fast", builtIn: true, values: preset(2.2, 15, [30, 30, 60, 20, 150, 300, 250, 20, 0, 10], [40, 40, 30, 30], [-20, 10, 0]) },
+    { name: "Average", builtIn: true, values: preset(3, 35, [60, 60, 120, 40, 250, 500, 400, 50, 30, 40], [30, 30, 20, 20], [0, 20, 10]) },
     { name: "Hunt & Peck", builtIn: true, values: preset(6, 60, [150, 120, 250, 80, 300, 600, 500, 100, 60, 100], [10, 10, 20, 0], [-30, 0, 20]) }
   ];
 

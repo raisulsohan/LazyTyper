@@ -156,7 +156,8 @@ for (const p of rig.TYPING_PRESETS) {
   const last = ev[ev.length - 1];
   const sec = last[0] * FD;
   const cps = text.length / sec;
-  const range = { "Very Fast": [8, 30], Average: [3, 12], "Hunt & Peck": [0.8, 5] }[p.name];
+  // Believable on screen: a very fast typist, an everyday one, two fingers.
+  const range = { "Very Fast": [11, 17], Average: [5, 9], "Hunt & Peck": [1.8, 3.5] }[p.name];
   check(`${p.name}: ${cps.toFixed(1)} characters per second`, last[1] === text.length && cps >= range[0] && cps <= range[1], `${cps}`);
 }
 

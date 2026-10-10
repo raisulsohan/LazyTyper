@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+From trying 1.0.0 the way a designer would:
+
+- The panel notices when a rig's cursor needs a Refresh (the font, size, tracking, alignment
+  or box changed; for a Stable rig also the text) and says so in amber at the top; clicking
+  that message refreshes. The Refresh button stands out too.
+- Typing presets at believable speeds: Very Fast about 14 characters a second at 30 fps
+  (was 26, faster than anyone types), Average about 7, Hunt & Peck about 2.5. New rigs start
+  at 3 frames per character.
+- Erase says what it does: typing stops and the characters backspace away over the frames.
+
 ## 1.0.0 - 2026-10-10
 
 First version.

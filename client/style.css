@@ -160,6 +160,11 @@ body::-webkit-scrollbar-track { background: transparent; }
 .status--text .status-dot { background: var(--cyan); }
 .status--baked .status-dot { background: var(--amber); box-shadow: 0 0 8px rgba(251, 191, 36, 0.5); }
 
+.status--refresh { border-color: var(--amber-strong); cursor: pointer; }
+.status--refresh:hover { background-color: var(--amber-soft); }
+.status--refresh .status-dot { background: var(--amber); box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+.status--refresh .status-sub { color: var(--amber); white-space: normal; }
+
 .status-body { min-width: 0; flex: 1 1 auto; }
 .status-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status-sub { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -379,6 +384,16 @@ optgroup { background: var(--card); color: var(--muted); font-style: normal; }
   font-size: 11px;
 }
 .tile-icon { font-size: 14px; color: var(--accent); line-height: 1.1; margin-bottom: 2px; }
+
+/* Refresh asks for a click when the text or its style changed since the cursor was measured. */
+.btn--tile.is-attention {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+  -webkit-animation: attention 1.4s ease-in-out infinite;
+  animation: attention 1.4s ease-in-out infinite;
+}
+@-webkit-keyframes attention { 50% { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.35); } }
+@keyframes attention { 50% { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.35); } }
 .btn--danger .tile-icon { color: var(--bad); }
 
 .grid2, .grid3 { display: grid; grid-gap: 6px; }
