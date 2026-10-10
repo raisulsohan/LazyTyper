@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Bengali (and Devanagari and the other Indian scripts): the cursor follows the text. After
+  Effects counts a joined letter (a consonant with its vowel sign, a conjunct, a reph) as one
+  unit, and LazyTyper counted characters: a Dynamic rig's cursor stayed at the start of the
+  line, a Stable rig's trailed the text by about a word and its text ran ahead. The Dynamic
+  guide now measures the last unit with an Expression Selector, a Stable rig's typing range
+  counts units, and its cursor table groups the outlined glyphs by unit. The panel asks for
+  a Refresh on such a rig made with 1.1.1 or earlier.
+
 ## 1.1.1 - 2026-10-11
 
 - After Erase with no typing later, a Dynamic rig's status counted "0 / 0 characters" and

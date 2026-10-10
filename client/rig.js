@@ -234,15 +234,56 @@
     "function LT_sp(c) { return c === \" \" || c === \"\\t\" || c === \"\\u00A0\" || c === \"\\u3000\" || c === \"\\u2009\"; }\n";
 
   /*
-   * A range selector's index skips line breaks, so a string position becomes a selector index
-   * by taking away the breaks before it.
+   * Text animators count units, not characters: a letter with its marks is one unit (a grapheme
+   * cluster), and so are Bengali, Devanagari, Gujarati, Oriya, Telugu and Malayalam consonants
+   * joined by a virama ("kSa" is one unit, "mi" is one unit). LT_join(s, i) is true when
+   * s.charAt(i) belongs to the unit of the character before it. ES3, copied into the expressions
+   * as written; host.jsx keeps the same function as joinsPrevious (the Node tests compare them).
    */
-  var INDEX_FN = "function LT_index(s, k) { var n = 0; for (var i = 0; i < k && i < s.length; i++) if (LT_nl(s.charAt(i))) n++; return k - n; }\n";
+  function LT_join(s, i) {
+    function mark(n) {
+      if (n === 0x200C || n === 0x200D) return true;
+      if ((n >= 0x0300 && n <= 0x036F) || (n >= 0x1AB0 && n <= 0x1AFF) || (n >= 0x1DC0 && n <= 0x1DFF) ||
+        (n >= 0x20D0 && n <= 0x20FF) || (n >= 0xFE00 && n <= 0xFE0F) || (n >= 0xFE20 && n <= 0xFE2F)) return true;
+      if (n < 0x0900 || n > 0x0D7F || n === 0x0980 || n === 0x09CE || n === 0x0D4E) return false;
+      var o = n & 0x7F;
+      return o <= 3 || (o >= 0x3A && o <= 0x4F && o !== 0x3D) || (o >= 0x51 && o <= 0x57) || o === 0x62 || o === 0x63 ||
+        n === 0x0A70 || n === 0x0A71 || n === 0x0A75;
+    }
+    function linker(n) {
+      return n === 0x094D || n === 0x09CD || n === 0x0ACD || n === 0x0B4D || n === 0x0C4D || n === 0x0D4D;
+    }
+    function consonant(n) {
+      var o = n & 0x7F;
+      return n >= 0x0900 && n <= 0x0D7F && ((o >= 0x15 && o <= 0x39) || (o >= 0x58 && o <= 0x5F) || n === 0x09F0 || n === 0x09F1);
+    }
+    if (i <= 0 || i >= s.length) return false;
+    var c = s.charCodeAt(i);
+    var p = s.charCodeAt(i - 1);
+    if (p === 13 || p === 10 || p === 3 || p === 0x2028 || p === 0x2029) return false;
+    if (c >= 0xDC00 && c <= 0xDFFF) return p >= 0xD800 && p <= 0xDBFF;
+    if (mark(c)) return true;
+    if (!consonant(c)) return false;
+    var j = i - 1;
+    var linked = false;
+    while (j >= 0 && mark(s.charCodeAt(j))) {
+      if (linker(s.charCodeAt(j))) linked = true;
+      j--;
+    }
+    return linked && j >= 0 && consonant(s.charCodeAt(j)) && (s.charCodeAt(j) >> 7) === (c >> 7);
+  }
 
-  /* Stable rig: the opacity range starts at the first character not typed yet. */
+  /*
+   * A range selector's index counts units and skips line breaks: the units that start before
+   * string position k (a unit typed in part counts, After Effects shows it whole).
+   */
+  var UNIT_FN = String(LT_join) + "\n" +
+    "function LT_unit(s, k) { var n = 0; for (var i = 0; i < k && i < s.length; i++) if (!LT_nl(s.charAt(i)) && !LT_join(s, i)) n++; return n; }\n";
+
+  /* Stable rig: the opacity range starts at the first unit not typed yet. */
   function stableSelectorStart() {
-    return header("typing range") + STR_FN + TRAILING_SCAN + INDEX_FN +
-      "LT_index(LT_str(text.sourceText.value), Math.round(effect(\"Characters Shown\")(1).value))";
+    return header("typing range") + STR_FN + TRAILING_SCAN + UNIT_FN +
+      "LT_unit(LT_str(text.sourceText.value), Math.round(effect(\"Characters Shown\")(1).value))";
   }
 
   /* Dynamic guide: shows what the text layer shows, in the guide's own (flattened) style. */
@@ -250,13 +291,13 @@
     return header("guide text") + STR_FN + "LT_str(parent.text.sourceText.value)";
   }
 
-  /* Dynamic guide: a Subtract selector that leaves only the last character that has a shape. */
-  function guideSelector(end) {
-    return header("guide selector") + STR_FN + TRAILING_SCAN + INDEX_FN +
-      "var s = LT_str(text.sourceText.value);\n" +
-      "var j = s.length - 1;\n" +
-      "while (j >= 0 && (LT_nl(s.charAt(j)) || LT_sp(s.charAt(j)))) j--;\n" +
-      (end ? "j < 0 ? 0 : LT_index(s, j) + 1" : "j < 0 ? 0 : LT_index(s, j)");
+  /*
+   * Dynamic guide: the Amount of an Expression Selector based on Characters Excluding Spaces.
+   * It leaves only the last unit with a shape out of the Scale 0 animator, counted by After
+   * Effects itself, so letters that join (Bengali, Devanagari) are measured whole.
+   */
+  function guideSelector() {
+    return header("guide selector") + "textIndex === textTotal ? 0 : 100";
   }
 
   function point3() {
@@ -378,8 +419,7 @@
       recorder: recorder(),
       stableSelectorStart: stableSelectorStart(),
       guideText: guideText(),
-      guideSelectorStart: guideSelector(false),
-      guideSelectorEnd: guideSelector(true),
+      guideSelector: guideSelector(),
       cursorOpacity: cursorOpacity(),
       cursorColor: cursorColor(),
       stableCursorPosition: stableCursorPosition(),
@@ -401,6 +441,7 @@
     LABEL_HEX: LABEL_HEX,
     DEFAULT_KEY_LABELS: DEFAULT_KEY_LABELS,
     engineSource: engineSource,
+    joins: LT_join,
     expressionSet: expressionSet
   };
   if (typeof window !== "undefined") window.LazyTyperRig = api;

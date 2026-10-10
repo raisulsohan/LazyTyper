@@ -29,7 +29,7 @@ holds no copy of them.
 |---|---|---|
 | Text layer | the controls; *Characters Shown* runs the engine; an animator **LazyTyper** (Opacity 0, index range from the first untyped character) | the controls; **Source Text** runs the engine and shows `text.substr(0, count)`; *Characters Shown* reads the shown length back |
 | Cursor (shape layer, comment `LazyTyper cursor`) | parented to the text; position from a table of cursor points per Source Text keyframe, measured with *Create Shapes from Text* | parented to the text; position from the guide's bounds |
-| Guide (comment `LazyTyper guide`) | none | a hidden, disabled guide copy parented to the text with an identity transform; shows what the text shows, and an animator (Scale 0, all characters, minus the last one that has a shape) makes `sourceRectAtTime` the box of that one character |
+| Guide (comment `LazyTyper guide`) | none | a hidden, disabled guide copy parented to the text with an identity transform; shows what the text shows, and an animator (Scale 0, an Expression Selector on Characters Excluding Spaces that leaves out the last unit) makes `sourceRectAtTime` the box of that one unit |
 
 Baking replaces *Characters Shown*'s expression with hold keyframes (labelled by
 character class) from one recorder run; a Dynamic rig's Source Text then switches to an
@@ -41,8 +41,13 @@ Found by `tools/spikes/spikes.jsx` and later probes in After Effects 26.5:
 
 - `sourceRectAtTime` follows text animators that **scale** characters (not opacity), so a
   Scale-0 animator can measure a single character.
-- A range selector's index **does not count line breaks**: subtract the breaks before a
-  string position (`LT_index` in rig.js).
+- A range selector's index **does not count line breaks**, and it counts **units** (grapheme
+  clusters), not characters: a Bengali consonant with its vowel sign, a conjunct or a reph is
+  one unit (`LT_unit`/`LT_join` in rig.js, `joinsPrevious` in host.jsx; `tools/spikes/bengali-cursor.jsx`).
+- An Expression Selector's `textIndex`/`textTotal` count the same units; based on Characters
+  Excluding Spaces, `textIndex === textTotal` is the last unit with a shape.
+- Create Shapes from Text names each glyph after a character of its unit, not always its own
+  (the Bengali i-sign drawn before its letter carries the letter's name), in visual order.
 - Range selector *Index End* is capped at 99999.
 - The legacy expression engine has no `sourceText.style` and **throws on reading a
   property that does not exist**; the expressions read only fields they always set, use

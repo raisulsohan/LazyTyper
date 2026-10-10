@@ -254,7 +254,8 @@
       st.className = "status " + (rig.baked ? "status--baked" : "status--rig");
       title.textContent = rig.name + (layers.length > 1 ? "  +" + (layers.length - 1) + " more" : "");
       var kind = rig.rig === "dynamic" ? "Dynamic" : "Stable";
-      sub.textContent = rig.needsRefresh ? "⚠ The text or its style changed: click here to refresh the cursor." :
+      sub.textContent = rig.olderRig ? "⚠ Made by an earlier LazyTyper: click here to refresh it for this script." :
+        rig.needsRefresh ? "⚠ The text or its style changed: click here to refresh the cursor." :
         kind + " rig" + (rig.baked ? " · baked" : "") + (rig.cursor ? " · cursor" : "") +
         (rig.length !== undefined ? " · " + (rig.shown || 0) + " / " + rig.length + " characters" : "");
       if (rig.needsRefresh) st.className += " status--refresh";

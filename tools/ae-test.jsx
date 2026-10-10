@@ -47,6 +47,7 @@
     var st = LT.sourceText(l);
     var d = st.value;
     d.fontSize = 64;
+    if (c.font) d.font = c.font;
     d.applyFill = true;
     d.fillColor = [1, 1, 1];
     d.justification = c.just === "center" ? ParagraphJustification.CENTER_JUSTIFY :
@@ -126,12 +127,12 @@
         var badSel = [];
         for (var se = 0; se < c.expected.length; se += 3) {
           var kk = c.expected[se][1];
-          var breaks = 0;
-          for (var bi = 0; bi < kk; bi++) if (c.text.charAt(bi) === "\r") breaks++;
+          var unitsBefore = 0;
+          for (var bi = 0; bi < kk; bi++) if (c.text.charAt(bi) !== "\r" && !LT.joinsPrevious(c.text, bi)) unitsBefore++;
           var sv = Math.round(sel.valueAtTime(c.expected[se][0] * FD, false));
-          if (sv !== kk - breaks) badSel.push(kk + "->" + sv);
+          if (sv !== unitsBefore) badSel.push(kk + "->" + sv);
         }
-        check(name + ": typing range skips line breaks", !badSel.length, badSel.join(", "));
+        check(name + ": typing range counts units, skips line breaks", !badSel.length, badSel.join(", "));
       }
 
       // Dynamic: the text layer shows exactly the typed characters.
@@ -157,8 +158,35 @@
           ys.push(Math.round(p[1]));
         }
         var grows = true;
-        for (var x = 1; x < xs.length; x++) if (xs[x] <= xs[x - 1] && ys[x] === ys[x - 1]) grows = false;
+        // Joined letters: the cursor may hold still while a vowel sign or virama joins the letter.
+        for (var x = 1; x < xs.length; x++) if ((c.joined ? xs[x] < xs[x - 1] : xs[x] <= xs[x - 1]) && ys[x] === ys[x - 1]) grows = false;
         check(name + ": cursor moves right as it types", grows, xs.join(","));
+        // Joined letters: after every keystroke the cursor sits after what shows, measured on a
+        // scratch layer holding that text (Dynamic: the typed characters; Stable: whole units).
+        if (c.joined) {
+          var scratch = layer.duplicate();
+          var sfx = scratch.property("ADBE Effect Parade");
+          while (sfx.numProperties) sfx.property(1).remove();
+          var sst = LT.sourceText(scratch);
+          sst.expression = "";
+          var san = scratch.property("ADBE Text Properties").property("ADBE Text Animators");
+          while (san.numProperties) san.property(1).remove();
+          var badX = [];
+          for (var jx = 0; jx < c.expected.length; jx++) {
+            var kx = c.expected[jx][1];
+            if (kx < 1 || c.text.charAt(kx - 1) === " ") continue;
+            var upto = kx;
+            if (c.type === "stable") while (upto < c.text.length && LT.joinsPrevious(c.text, upto)) upto++;
+            var sd = sst.value;
+            sd.text = c.text.substr(0, upto);
+            sst.setValue(sd);
+            var sr = scratch.sourceRectAtTime(0, false);
+            var px = pos.valueAtTime(c.expected[jx][0] * FD, false)[0];
+            if (Math.abs(px - (sr.left + sr.width)) > 8) badX.push(kx + ": " + Math.round(px) + " vs " + Math.round(sr.left + sr.width));
+          }
+          scratch.remove();
+          check(name + ": cursor after every keystroke", !badX.length, badX.slice(0, 6).join("; "));
+        }
         // After the whole text: compare with a scratch layer holding the text up to its last glyph.
         var endF = c.expected[c.expected.length - 1][0] + 2;
         var pe = pos.valueAtTime(endF * FD, false);
@@ -210,11 +238,29 @@
       var mid3 = c.expected[Math.floor(c.expected.length / 2)];
       check(name + ": unbaked typing", Math.round(cs.valueAtTime(mid3[0] * FD, false)) === mid3[1]);
 
+      // A Stable rig from 1.1.1 or earlier on joined letters (a typing range counting characters)
+      // asks for a Refresh; the Refresh below must clear that.
+      if (c.joined && c.type === "stable") {
+        select(comp, layer);
+        var fresh = call("selectionInfo", { detail: true }).layers[0];
+        check(name + ": a new rig needs no refresh", !fresh.needsRefresh && !fresh.olderRig, LT.stringify(fresh));
+        var oldSel = layer.property("ADBE Text Properties").property("ADBE Text Animators").property("LazyTyper")
+          .property("ADBE Text Selectors").property(1).property("ADBE Text Index Start");
+        oldSel.expression = "Math.round(effect(\"Characters Shown\")(1).value)";
+        var older = call("selectionInfo", { detail: true }).layers[0];
+        check(name + ": an older rig asks for a refresh", older.needsRefresh === true && older.olderRig === true, LT.stringify(older));
+      }
+
       // Refresh keeps it working.
       var rf = call("refreshRig", {});
       check(name + ": refresh", rf.ok && !rf.problems.length, rf.msg || rf.problems.join(" | "));
       cs = LT.control(layer, "Characters Shown");
       check(name + ": typing after refresh", Math.round(cs.valueAtTime(mid3[0] * FD, false)) === mid3[1]);
+      if (c.joined) {
+        select(comp, layer);
+        var after = call("selectionInfo", { detail: true }).layers[0];
+        check(name + ": no refresh needed after a refresh", !after.needsRefresh && !after.olderRig, LT.stringify(after));
+      }
       save();
     }
 

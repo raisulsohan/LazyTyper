@@ -6,6 +6,7 @@
 // cover the timing itself; tools/ae-test.jsx covers the expressions inside After Effects.
 import { createRequire } from "node:module";
 import vm from "node:vm";
+import fs from "node:fs";
 
 const require = createRequire(import.meta.url);
 const { lazyTyperRun } = require("../client/engine.js");
@@ -210,6 +211,90 @@ for (const p of rig.TYPING_PRESETS) {
   ctx.thisLayer.text = ctx.text;
   const out = vm.runInNewContext(set.stableCount, ctx);
   check("stable count expression runs", out === 3, out);
+}
+
+// 14. Text units (grapheme clusters) for joined letters, as After Effects 26.5 counts them
+// (tools/spikes/bengali-cursor.jsx measured the Bengali splits and glyphs used here).
+{
+  const hostCtx = {};
+  vm.createContext(hostCtx);
+  vm.runInContext(fs.readFileSync(new URL("../host/host.jsx", import.meta.url), "utf8"), hostCtx);
+  const LT = hostCtx.LT;
+  const units = (s) => {
+    const out = [];
+    for (let i = 0; i < s.length; i++) {
+      if (/[\r\n]/.test(s[i])) continue;
+      if (out.length && LT.joinsPrevious(s, i)) out[out.length - 1] += s[i];
+      else out.push(s[i]);
+    }
+    return out;
+  };
+  const BN = "আমি বাংলায় টাইপ করি। এটাও চলে।";
+  const BN2 = "ক্ষমা কর্ম স্ত্রী কোথায়";
+  const samples = [BN, BN2, "Hello,\rworld\n", "étè", "a😀b", "অ্যা",
+    "क्षत्रिय हिन्दी", "க்ஷ தமிழ்",
+    "কর্", "ক্‍ষ", "これも。", "্ক া"];
+  let same = true;
+  for (const s of samples) for (let i = -1; i <= s.length; i++) if (LT.joinsPrevious(s, i) !== rig.joins(s, i)) same = false;
+  check("units: host and expression agree", same);
+  check("units: Bengali split as After Effects counts it", units(BN).length === 22 &&
+    units(BN).join("|") === "আ|মি| |বাং|লা|য়| |টা|ই|প| |ক|রি|।| |এ|টা|ও| |চ|লে|।",
+  units(BN).join("|"));
+  check("units: conjuncts, reph, two-part vowel, nukta", units(BN2).join("|") ===
+    "ক্ষ|মা| |ক|র্ম| |স্ত্রী| |কো|থা|য়",
+  units(BN2).join("|"));
+  check("units: a trailing hasanta stays on its letter", units("কর্").length === 2);
+  check("units: Latin, Japanese and line breaks one per character", units("Hello,\rworld\n").length === 11 &&
+    units("これも。").length === 4);
+  check("units: combining accents and surrogate pairs join", units("étè").length === 3 && units("a😀b").length === 3);
+
+  // The Stable typing range counts units that have started, line breaks skipped.
+  const set = rig.expressionSet();
+  const rangeAt = (s, k) => vm.runInNewContext(set.stableSelectorStart, {
+    text: { sourceText: { value: s } },
+    effect: (n) => () => ({ value: n === "Characters Shown" ? k : 0 })
+  });
+  check("stable range: Latin is the character count minus line breaks", rangeAt("ab\rcd", 4) === 3 && rangeAt("ab\rcd", 0) === 0);
+  // Measured: index 1 shows "আ", 2 shows "আমি", 4 shows up to "বাং".
+  const bnRange = [0, 1, 2, 2, 3, 4, 4, 4, 5, 5, 6, 7];
+  check("stable range: Bengali counts units", bnRange.every((u, k) => rangeAt(BN, k) === u),
+    bnRange.map((u, k) => rangeAt(BN, k)).join(","));
+
+  // Cursor table from the glyphs After Effects outlined (names and x extents as measured).
+  const glyphs = (list) => list.map(([name, l, r]) => ({ name, l, r, t: -34, b: 0 }));
+  const m = { size: 46, gap: 0, spaceWidth: 12, firstBaseline: 0, leading: 60, lineStart: 0 };
+  const xs = (text, g) => {
+    const t = LT.cursorTable(text, glyphs(g), [{ x1: 0, y: 0, x2: 0 }], m);
+    const o = [];
+    for (let k = 0; k < t.length; k += 2) o.push(Math.round(t[k]));
+    return o;
+  };
+  const BN_GLYPHS = [["আ", -1, 56], ["ম", 55, 92], ["ম", 66, 101], ["ব", 112, 142], ["ব", 140, 153],
+    ["ং", 156, 171], ["ল", 173, 208], ["া", 207, 220], ["য়", 218, 249], ["ট", 260, 290],
+    ["া", 289, 302], ["ই", 300, 330], ["প", 331, 366], ["ক", 377, 419], ["র", 418, 455],
+    ["র", 429, 459], ["।", 469, 472], ["এ", 492, 523], ["ট", 523, 554], ["া", 553, 566],
+    ["ও", 567, 596], ["চ", 609, 638], ["ল", 637, 657], ["ল", 656, 691], ["।", 700, 704]];
+  // After each unit: the right edge of the text typed so far, measured in After Effects.
+  const bnX = xs(BN, BN_GLYPHS);
+  const bnEnds = { 1: 56, 3: 101, 7: 171, 9: 220, 10: 249, 13: 302, 14: 330, 15: 366, 17: 419, 19: 459, 20: 472,
+    22: 523, 24: 566, 25: 596, 27: 638, 29: 691, 30: 704 };
+  const bnBad = Object.entries(bnEnds).filter(([k, x]) => bnX[k] !== x).map(([k, x]) => `${k}: ${bnX[k]} not ${x}`);
+  check("cursor table: Bengali after every unit", !bnBad.length, bnBad.join("; "));
+  check("cursor table: Bengali inside a unit sits after the unit", bnX[2] === 101 && bnX[5] === 171, bnX.join(","));
+  check("cursor table: Bengali after a space (up to the next letter)", bnX[4] === 112 && bnX[11] === 260, bnX.join(","));
+  const BN2_GLYPHS = [["ক", -1, 47], ["ম", 45, 80], ["া", 79, 92], ["ক", 103, 145], ["র", 143, 178],
+    ["ম", 168, 185], ["স", 189, 226], ["ী", 198, 238], ["ক", 253, 269], ["ক", 268, 310],
+    ["ো", 308, 321], ["থ", 323, 351], ["া", 350, 363], ["য", 361, 392]];
+  const bn2X = xs(BN2, BN2_GLYPHS);
+  const bn2Ends = { 3: 47, 5: 92, 7: 145, 10: 185, 17: 238, 20: 321, 22: 363, 24: 392 };
+  const bn2Bad = Object.entries(bn2Ends).filter(([k, x]) => bn2X[k] !== x).map(([k, x]) => `${k}: ${bn2X[k]} not ${x}`);
+  check("cursor table: conjuncts, reph, two-part vowel, nukta", !bn2Bad.length, bn2Bad.join("; "));
+  // Repeated syllables whose glyphs carry the same names: each unit takes only its own.
+  check("cursor table: repeated syllables (baba)", xs("বাবা", [["ব", 0, 30], ["ব", 28, 40], ["ব", 40, 70], ["ব", 68, 80]]).join(",") === "0,40,40,80,80");
+  check("cursor table: repeated syllables (mimi)", xs("মিমি", [["ম", 0, 37], ["ম", 11, 46], ["ম", 46, 83], ["ম", 57, 92]]).join(",") === "0,46,46,92,92");
+  check("cursor table: repeated two-part vowels (koko)", xs("কোকো", [["ক", 0, 16], ["ক", 15, 57], ["ো", 55, 68], ["ক", 68, 84], ["ক", 83, 125], ["ো", 123, 136]]).join(",") === "0,68,68,136,136");
+  check("cursor table: Latin one glyph per character", xs("Hi yo", [["H", 0, 30], ["i", 34, 40], ["y", 52, 70], ["o", 72, 90]]).join(",") === "0,30,40,52,70,90");
+  check("cursor table: a ligature named by two characters", xs("fix", [["fi", 0, 30], ["x", 31, 50]]).join(",") === "0,30,30,50");
 }
 
 // 13. The engine source stays ES3-friendly.

@@ -490,25 +490,154 @@ var LT = (function () {
   }
 
   /*
+   * True when s.charAt(i) belongs to the text unit (grapheme cluster) of the character before
+   * it: a letter with its marks, or consonants joined by a virama. The same function as
+   * LT_join in client/rig.js, which the Stable typing range runs; the Node tests compare them.
+   */
+  function joinsPrevious(s, i) {
+    function mark(n) {
+      if (n === 0x200C || n === 0x200D) return true;
+      if ((n >= 0x0300 && n <= 0x036F) || (n >= 0x1AB0 && n <= 0x1AFF) || (n >= 0x1DC0 && n <= 0x1DFF) ||
+        (n >= 0x20D0 && n <= 0x20FF) || (n >= 0xFE00 && n <= 0xFE0F) || (n >= 0xFE20 && n <= 0xFE2F)) return true;
+      if (n < 0x0900 || n > 0x0D7F || n === 0x0980 || n === 0x09CE || n === 0x0D4E) return false;
+      var o = n & 0x7F;
+      return o <= 3 || (o >= 0x3A && o <= 0x4F && o !== 0x3D) || (o >= 0x51 && o <= 0x57) || o === 0x62 || o === 0x63 ||
+        n === 0x0A70 || n === 0x0A71 || n === 0x0A75;
+    }
+    function linker(n) {
+      return n === 0x094D || n === 0x09CD || n === 0x0ACD || n === 0x0B4D || n === 0x0C4D || n === 0x0D4D;
+    }
+    function consonant(n) {
+      var o = n & 0x7F;
+      return n >= 0x0900 && n <= 0x0D7F && ((o >= 0x15 && o <= 0x39) || (o >= 0x58 && o <= 0x5F) || n === 0x09F0 || n === 0x09F1);
+    }
+    if (i <= 0 || i >= s.length) return false;
+    var c = s.charCodeAt(i);
+    var p = s.charCodeAt(i - 1);
+    if (p === 13 || p === 10 || p === 3 || p === 0x2028 || p === 0x2029) return false;
+    if (c >= 0xDC00 && c <= 0xDFFF) return p >= 0xD800 && p <= 0xDBFF;
+    if (mark(c)) return true;
+    if (!consonant(c)) return false;
+    var j = i - 1;
+    var linked = false;
+    while (j >= 0 && mark(s.charCodeAt(j))) {
+      if (linker(s.charCodeAt(j))) linked = true;
+      j--;
+    }
+    return linked && j >= 0 && consonant(s.charCodeAt(j)) && (s.charCodeAt(j) >> 7) === (c >> 7);
+  }
+
+  /* True when some character of s joins the one before it (the text has multi-character units). */
+  function hasJoins(s) {
+    for (var i = 1; i < s.length; i++) if (joinsPrevious(s, i)) return true;
+    return false;
+  }
+
+  /*
+   * Indic vowel signs. A shaper may draw one apart from its letter (the Bengali i-sign before
+   * it) and Create Shapes from Text then names that glyph after the letter.
+   */
+  function isVowelSign(n) {
+    if (n < 0x0900 || n > 0x0D7F) return false;
+    var o = n & 0x7F;
+    return (o >= 0x3E && o <= 0x4C) || o === 0x57 || o === 0x62 || o === 0x63;
+  }
+
+  /* Vowel signs drawn in two parts, one each side of the letter (Bengali o and au, ...). */
+  function isTwoPart(n) {
+    return n === 0x09CB || n === 0x09CC || n === 0x0B48 || n === 0x0B4B || n === 0x0B4C ||
+      (n >= 0x0BCA && n <= 0x0BCC) || (n >= 0x0D4A && n <= 0x0D4C);
+  }
+
+  /*
+   * Takes the characters a glyph is named after from a unit's tokens: each one exactly, or,
+   * when the character is in the unit but used up, a vowel sign the glyph stands for. All or
+   * nothing; true when taken.
+   */
+  function takeTokens(tokens, name, unit) {
+    var left = tokens.slice(0);
+    for (var c = 0; c < name.length; c++) {
+      var ch = name.charAt(c);
+      var hit = -1;
+      var k;
+      for (k = 0; k < left.length && hit < 0; k++) if (left[k].c === ch) hit = k;
+      if (hit < 0 && unit.indexOf(ch) >= 0) {
+        for (k = 0; k < left.length && hit < 0; k++) if (left[k].loose) hit = k;
+      }
+      if (hit < 0) return false;
+      left.splice(hit, 1);
+    }
+    tokens.length = 0;
+    for (var t = 0; t < left.length; t++) tokens.push(left[t]);
+    return true;
+  }
+
+  /*
+   * The box of each character's unit, from the outlined glyphs (in reading order, named by a
+   * character of their unit, none for spaces and line breaks). A unit takes glyphs while their
+   * names match its characters, so a letter with a vowel sign drawn in two or three glyphs, or
+   * a conjunct drawn as one, gets them all; every character of the unit gets the unit's box.
+   */
+  function unitBoxes(text, glyphs) {
+    var n = text.length;
+    var G = [];
+    var i;
+    for (i = 0; i < n; i++) G.push(null);
+    var gi = 0;
+    i = 0;
+    while (i < n && gi < glyphs.length) {
+      if (isBlank(text.charAt(i))) {
+        i++;
+        continue;
+      }
+      var end = i + 1;
+      while (end < n && joinsPrevious(text, end)) end++;
+      var unit = text.substring(i, end);
+      var tokens = [];
+      for (var k = i; k < end; k++) {
+        var code = text.charCodeAt(k);
+        tokens.push({ c: text.charAt(k), loose: isVowelSign(code) });
+        if (isTwoPart(code)) tokens.push({ c: text.charAt(k), loose: false });
+      }
+      var box = null;
+      while (gi < glyphs.length) {
+        var g = glyphs[gi];
+        var name = String(g.name);
+        if (!box && name.length > end - i && text.substr(i, name.length) === name) {
+          /* A ligature over several units ("fi"): it covers them all. */
+          end = i + name.length;
+          while (end < n && joinsPrevious(text, end)) end++;
+          box = { l: g.l, t: g.t, r: g.r, b: g.b };
+          gi++;
+          break;
+        }
+        /* The first glyph is the unit's even when its name does not match (keeps the count). */
+        if (!takeTokens(tokens, name, unit) && box) break;
+        if (!box) box = { l: g.l, t: g.t, r: g.r, b: g.b };
+        else {
+          box.l = Math.min(box.l, g.l);
+          box.t = Math.min(box.t, g.t);
+          box.r = Math.max(box.r, g.r);
+          box.b = Math.max(box.b, g.b);
+        }
+        gi++;
+        if (!tokens.length) break;
+      }
+      for (k = i; k < end; k++) G[k] = box;
+      i = end;
+    }
+    return G;
+  }
+
+  /*
    * Where the cursor sits after k characters, for k = 0..text.length, as a flat
-   * [x0, y0, x1, y1, ...] in the text layer's space.
+   * [x0, y0, x1, y1, ...] in the text layer's space. A character inside a unit puts the cursor
+   * after the whole unit, which the Stable rig shows as soon as its first character is typed.
    */
   function cursorTable(text, glyphs, lines, m) {
     var n = text.length;
-    var G = [];
-    var gi = 0;
+    var G = unitBoxes(text, glyphs);
     var i;
-    for (i = 0; i < n; i++) G.push(null);
-    for (i = 0; i < n && gi < glyphs.length; i++) {
-      if (isBlank(text.charAt(i))) continue;
-      var g = glyphs[gi];
-      var name = String(g.name);
-      var span = 1;
-      if (name.length > 1 && text.substr(i, name.length) === name) span = name.length;
-      for (var s = 0; s < span && i + s < n; s++) G[i + s] = g;
-      i += span - 1;
-      gi++;
-    }
     if (!lines.length) lines = [{ x1: m.lineStart, y: m.firstBaseline, x2: m.lineStart }];
     function lineOf(g) {
       var cy = (g.t + g.b) / 2 + 0.35 * m.size;
@@ -651,29 +780,40 @@ var LT = (function () {
     sel.property("ADBE Text Index Start").expression = expr.stableSelectorStart;
   }
 
+  /*
+   * Scale 0 on every unit but the last one with a shape: an Expression Selector based on
+   * Characters Excluding Spaces, so After Effects counts the units (a Bengali conjunct or a
+   * letter with its vowel sign is one) and trailing spaces and line breaks never count.
+   */
   function addGuideAnimator(guide, expr) {
     var a = animators(guide).addProperty("ADBE Text Animator");
     a.name = GUIDE_ANIMATOR;
     a = animatorNamed(guide, GUIDE_ANIMATOR);
-    a.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
-    a = animatorNamed(guide, GUIDE_ANIMATOR);
-    a.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
+    a.property("ADBE Text Selectors").addProperty("ADBE Text Expressible Selector");
     a = animatorNamed(guide, GUIDE_ANIMATOR);
     var sc = a.property("ADBE Text Animator Properties").addProperty("ADBE Text Scale 3D");
     sc.setValue([0, 0, 0]);
     a = animatorNamed(guide, GUIDE_ANIMATOR);
-    var all = a.property("ADBE Text Selectors").property(1);
-    all.name = "All";
-    all.property("ADBE Text Range Advanced").property("ADBE Text Range Units").setValue(2);
-    all.property("ADBE Text Index End").setValue(99999);
-    a = animatorNamed(guide, GUIDE_ANIMATOR);
-    var last = a.property("ADBE Text Selectors").property(2);
-    last.name = "Last Character";
-    var adv = last.property("ADBE Text Range Advanced");
-    adv.property("ADBE Text Range Units").setValue(2);
-    adv.property("ADBE Text Selector Mode").setValue(2);
-    last.property("ADBE Text Index Start").expression = expr.guideSelectorStart;
-    last.property("ADBE Text Index End").expression = expr.guideSelectorEnd;
+    var sel = a.property("ADBE Text Selectors").property(1);
+    sel.name = "Last Unit";
+    sel.property("ADBE Text Range Type2").setValue(2);
+    sel.property("ADBE Text Expressible Amount").expression = expr.guideSelector;
+  }
+
+  /* A guide made by 1.1.1 or earlier picks the last character by string index (wrong for joined letters). */
+  function oldGuide(layer) {
+    var g = findGuide(layer);
+    var a = g ? animatorNamed(g, GUIDE_ANIMATOR) : null;
+    if (!a) return false;
+    return a.property("ADBE Text Selectors").property(1).matchName !== "ADBE Text Expressible Selector";
+  }
+
+  /* A Stable typing range made by 1.1.1 or earlier counts characters, not units. */
+  function oldTypingRange(layer) {
+    var a = animatorNamed(layer, ANIMATOR);
+    if (!a) return false;
+    var e = a.property("ADBE Text Selectors").property(1).property("ADBE Text Index Start").expression;
+    return e !== "" && e.indexOf("LT_unit") < 0;
   }
 
   /* Dynamic rig: a hidden copy of the text layer whose bounds show where the cursor goes. */
@@ -844,6 +984,15 @@ var LT = (function () {
           full = type === "dynamic" ? String(dynamicDoc(l, item.time).text) : textOf(l, item.time);
         } catch (e0) {}
         info.text = full.substr(0, 2000);
+        /* Joined letters (Bengali, Devanagari) need the unit-counting parts of a newer rig. */
+        if (type && hasJoins(full)) {
+          try {
+            if (type === "dynamic" ? (cursor && oldGuide(l)) : oldTypingRange(l)) {
+              info.needsRefresh = true;
+              info.olderRig = true;
+            }
+          } catch (eO) {}
+        }
         if (type) {
           try {
             info.shown = Math.round(cs.valueAtTime(item.time, false));
@@ -1312,6 +1461,8 @@ var LT = (function () {
     call: call,
     stringify: stringify,
     cursorTable: cursorTable,
+    unitBoxes: unitBoxes,
+    joinsPrevious: joinsPrevious,
     measureMetrics: measureMetrics,
     sourceText: sourceText,
     control: control,

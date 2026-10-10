@@ -71,12 +71,15 @@ sentence, `、` is a comma, and the English-only controls (Common Pairs, Common 
 Letters) simply don't match. Choose a font that has the script (Nirmala UI for Bengali and Yu Gothic
 for Japanese, here).
 
-**The cursor and Bengali (LazyTyper 1.1.1).** The text types correctly with either rig, but the
-cursor does not keep up yet: in a **Dynamic** rig it stays at the start of the line (the top line
-above), and in a **Stable** rig it follows the text but trails it by a word or so (the bottom line).
-Bengali letters join into shapes that do not match the characters one to one, and the cursor is
-measured from those shapes. Until that is fixed, rig Bengali text with **No cursor**, or hide the
-cursor layer. Japanese, which does not join its characters, has the cursor right.
+**The cursor and Bengali.** Bengali letters join: a consonant with its vowel sign (`মি`), a
+conjunct (`ক্ষ`) or a reph (`র্ম`) is one shape, and After Effects counts it as one unit. LazyTyper
+1.1.1 counted characters instead, so in a **Dynamic** rig the cursor stayed at the start of the line
+(the top line above) and in a **Stable** rig it trailed the text by about a word (the bottom line).
+Newer versions count units like After Effects does: the cursor sits after the last letter in both
+rigs, and a Stable rig shows a joined letter whole as soon as its first character is typed. The
+same goes for Devanagari and the other Indian scripts. A rig made with 1.1.1 or earlier on such text
+says "Made by an earlier LazyTyper" in the panel: click **Refresh** once. Japanese, which does not
+join its characters, was always right.
 
 ## Mixed fonts, sizes and colours
 

@@ -30,12 +30,17 @@ const values = {};
 for (const c of rig.TEXT_CONTROLS) values[c.name] = c.value;
 Object.assign(values, typing);
 
+// "ami banglay kshama karma kotha." with a conjunct, a reph and a two-part vowel sign.
+const BENGALI = "আমি বাংলায় ক্ষমা কর্ম কোথা।";
 const cases = [
   { id: "stable-point", type: "stable", text: "Hello, world. This is LazyTyper!", box: null, just: "left" },
   { id: "dynamic-point", type: "dynamic", text: "Dynamic text, typing on.\rSecond line here", box: null, just: "left" },
   { id: "dynamic-box", type: "dynamic", text: "A paragraph that wraps across the box as each word is typed on screen.", box: [700, 400], just: "center" },
   { id: "stable-box", type: "stable", text: "Stable paragraph text keeps its layout while it types.", box: [700, 400], just: "right" },
-  { id: "stable-lines", type: "stable", text: "First line\rSecond, line two\r\rFourth", box: null, just: "center" }
+  { id: "stable-lines", type: "stable", text: "First line\rSecond, line two\r\rFourth", box: null, just: "center" },
+  // Joined letters: After Effects counts units (grapheme clusters), not characters.
+  { id: "dynamic-bengali", type: "dynamic", text: BENGALI, box: null, just: "left", font: "NirmalaUI", joined: true },
+  { id: "stable-bengali", type: "stable", text: BENGALI, box: null, just: "left", font: "NirmalaUI", joined: true }
 ];
 for (const c of cases) {
   const ev = lazyTyperRun({
