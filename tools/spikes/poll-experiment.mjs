@@ -7,11 +7,12 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { connectPanel } from "../cep-devtools.mjs";
+import { runPs } from "../ps.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const tmp = path.join(process.env.TEMP, "LazyTyper");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ps = (file) => execFileSync("powershell", ["-NoProfile", "-File", path.join(root, "tools", file)], { encoding: "utf8" });
+const ps = (file) => runPs(path.join(root, "tools", file));
 const dialogs = () => ps("ae-dialogs.ps1").split(/\r?\n/).filter((l) => /\[#32770\] ''/.test(l));
 
 async function round(label) {

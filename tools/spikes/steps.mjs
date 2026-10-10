@@ -4,13 +4,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { runPs } from "../ps.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const tmp = path.join(process.env.TEMP, "LazyTyper");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function dialogs() {
-  const out = execFileSync("powershell", ["-NoProfile", "-File", path.join(root, "tools", "ae-dialogs.ps1")], { encoding: "utf8" });
+  const out = runPs(path.join(root, "tools", "ae-dialogs.ps1"));
   return out.split(/\r?\n/).filter((l) => /\[#32770\] ''/.test(l));
 }
 
@@ -29,8 +30,8 @@ for (const step of process.argv.slice(2)) {
   for (const w of d) console.log(`   DIALOG ${w}`);
   if (d.length) {
     const shot = path.join(tmp, `dialog-${step}-${Date.now()}.png`);
-    execFileSync("powershell", ["-NoProfile", "-File", path.join(root, "tools", "screen-capture.ps1"), shot]);
+    runPs(path.join(root, "tools", "screen-capture.ps1"), [shot]);
     console.log(`   screen: ${shot}`);
-    execFileSync("powershell", ["-NoProfile", "-File", path.join(root, "tools", "ae-dismiss.ps1")]);
+    runPs(path.join(root, "tools", "ae-dismiss.ps1"));
   }
 }

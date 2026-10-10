@@ -15,6 +15,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { runPs } from "./ps.mjs";
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -104,7 +105,7 @@ for (const engine of ["extendscript", "javascript-1.0"]) {
 // After Effects' own error boxes never reach a script, so look for them on screen too
 // (they can come a moment after the script ends).
 await new Promise((r) => setTimeout(r, 4000));
-const dialogs = execFileSync("powershell", ["-NoProfile", "-File", path.join(root, "tools", "ae-dialogs.ps1")], { encoding: "utf8" })
+const dialogs = runPs(path.join(root, "tools", "ae-dialogs.ps1"))
   .split(/\r?\n/).filter((l) => /\[#32770\] ''/.test(l));
 if (dialogs.length) {
   failed++;

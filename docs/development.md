@@ -106,6 +106,9 @@ Driving After Effects from the command line (`tools/ae-run.mjs`):
   has a title; closing it cancels the script ("Unable to execute script at line N.
   Execution halted"). `tools/ae-dismiss.ps1` only closes untitled ones.
 - Both test runners fail when an After Effects message box is on screen at the end.
+- The PowerShell helpers (`ae-dialogs.ps1`, `ae-dismiss.ps1`, `screen-capture.ps1`) run through
+  `tools/ps.mjs` as an encoded command: Windows' default execution policy refuses
+  `powershell -File`, and the tools never change that policy.
 
 `npm run preview` serves the panel at http://localhost:5191/client/index.html with a
 stand-in host, for working on the layout in a browser.

@@ -11,6 +11,7 @@ import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { connectPanel } from "./cep-devtools.mjs";
+import { runPs } from "./ps.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const aeCom = process.env.LT_AFTERFX ?? "C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.com";
@@ -210,7 +211,7 @@ check("rig removed", !i12.layers[0].rig);
 
 panel.close();
 await sleep(4000);
-const dialogs = execFileSync("powershell", ["-NoProfile", "-File", path.join(root, "tools", "ae-dialogs.ps1")], { encoding: "utf8" })
+const dialogs = runPs(path.join(root, "tools", "ae-dialogs.ps1"))
   .split(/\r?\n/).filter((l) => /\[#32770\] ''/.test(l));
 check("no After Effects error dialogs", !dialogs.length, dialogs.join(" | "));
 console.log(`${failed ? "FAILED" : "ok"}: ${passed} passed, ${failed} failed. Screenshots in ${out}`);

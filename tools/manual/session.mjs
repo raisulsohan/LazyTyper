@@ -12,6 +12,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { connectPanel } from "../cep-devtools.mjs";
+import { runPs } from "../ps.mjs";
 
 const RIG = createRequire(import.meta.url)("../../client/rig.js");
 
@@ -105,15 +106,8 @@ async function panelUp() {
   }
 }
 
-/**
- * Runs a .ps1 with arguments, passed as an encoded command: this PC's execution policy
- * refuses -File, and changing the policy is not ours to do.
- */
-export function ps(file, args = []) {
-  const quoted = args.map((a) => `'${String(a).replace(/'/g, "''")}'`).join(" ");
-  const script = ["$ProgressPreference = 'SilentlyContinue'", "& {", fs.readFileSync(file, "utf8"), `} ${quoted}`].join("\n");
-  return execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], { encoding: "utf8" });
-}
+/** Runs a .ps1 (tools/ps.mjs: an encoded command, as the execution policy refuses -File). */
+export const ps = runPs;
 
 /** After Effects' visible message boxes (untitled #32770 windows), as lines. */
 export function aeDialogs() {

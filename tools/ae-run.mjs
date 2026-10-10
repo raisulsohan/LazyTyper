@@ -17,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { runPs } from "./ps.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const aeCom = process.env.LT_AFTERFX ?? "C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.com";
@@ -41,7 +42,7 @@ function aeRunning() {
  */
 function aeDialogs() {
   try {
-    const out = execFileSync("powershell", ["-NoProfile", "-File", path.join(here, "ae-dialogs.ps1")], { encoding: "utf8" });
+    const out = runPs(path.join(here, "ae-dialogs.ps1"));
     return out.split(/\r?\n/).filter((l) => /\[#32770\] ''/.test(l));
   } catch {
     return [];
@@ -52,9 +53,9 @@ function aeDialogs() {
 function closeDialogs() {
   const shot = path.join(tmp, "dialogs", `dialog-${Date.now()}.png`);
   try {
-    execFileSync("powershell", ["-NoProfile", "-File", path.join(here, "screen-capture.ps1"), shot]);
+    runPs(path.join(here, "screen-capture.ps1"), [shot]);
   } catch {}
-  execFileSync("powershell", ["-NoProfile", "-File", path.join(here, "ae-dismiss.ps1")]);
+  runPs(path.join(here, "ae-dismiss.ps1"));
   return shot;
 }
 
