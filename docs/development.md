@@ -50,7 +50,11 @@ Found by `tools/spikes/spikes.jsx` and later probes in After Effects 26.5:
 - Inside its own expression, `thisProperty.valueAtTime(t)` and `value` give the
   pre-expression value. From ExtendScript, a Source Text value is always read **after** its
   expression (`valueAtTime(t, true)` and `keyValue` included); only switching the
-  expression off shows the raw text, which the host does inside undo groups only.
+  expression off shows the raw text, which the host does inside undo groups only. To read
+  a Dynamic rig's full text while polling, the host asks its expression instead: at
+  `LT_PEEK + t` (hours before the comp starts) it shows the whole text at t.
+- `valueAtTime` clamps times to -10800 .. 10800 s (3 hours, the longest comp), for
+  expressions too.
 - Two expressions that read each other (Source Text and Characters Shown) resolve
   unpredictably in the JavaScript engine, so the Dynamic rig keeps one direction at a time.
 - Create Shapes from Text (`3781`) makes one group per glyph, named by its character, in

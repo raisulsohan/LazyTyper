@@ -192,6 +192,10 @@ check("erase", /backspace away/.test(await waitToast()));
 select("Headline", "3.7");
 let i11 = await waitInfo((i) => i.time > 3.6, "playhead at 3.7 s");
 check("erased by 3.7 s", i11.layers[0].shown === 0, i11.layers[0].shown);
+check("erased: the panel still knows the full text", i11.layers[0].text === "Hello, this is LazyTyper." &&
+  i11.layers[0].length === 25, `${i11.layers[0].length} "${i11.layers[0].text}"`);
+const sub11 = await panel.evaluate("document.getElementById('statusSub').textContent");
+check("erased: status counts out of the full text", /0 \/ 25 characters/.test(sub11), sub11);
 await click("btnPause");
 check("pause", /Pause/.test(await waitToast()));
 await screenshot("after-helpers");

@@ -188,19 +188,31 @@
   }
 
   /*
+   * ExtendScript reads Source Text only after its expression, so the host asks a Dynamic
+   * rig's expression itself for the full text: evaluated at LT_PEEK + t, hours before any time
+   * the comp shows, it gives LT_text(t) whole. LT_PEEK is the earliest time valueAtTime
+   * reaches (it clamps to 3 hours either way); the host reads it from the expression.
+   */
+  var PEEK = "var LT_PEEK = -10800;\n";
+
+  function peekOr(shown) {
+    return "time <= LT_PEEK + thisComp.duration ? LT_text(time - LT_PEEK) : " + shown;
+  }
+
+  /*
    * Dynamic rig: Source Text runs the engine and Characters Shown reads its length back.
    * It must not touch Characters Shown at all, or the two expressions would depend on each
    * other, which After Effects resolves unpredictably. Bake swaps in dynamicTextBaked.
    */
   function dynamicText() {
-    return header("dynamic typing") + preamble("thisProperty", "value") +
-      "LT_text(time).substr(0, Math.max(0, " + runCall(false) + "))";
+    return header("dynamic typing") + PEEK + preamble("thisProperty", "value") +
+      peekOr("LT_text(time).substr(0, Math.max(0, " + runCall(false) + "))");
   }
 
   /* Dynamic rig, baked: Characters Shown holds keyframes and Source Text follows them. */
   function dynamicTextBaked() {
-    return header("dynamic typing, baked") + textPart("thisProperty", "value") +
-      "LT_text(time).substr(0, Math.max(0, Math.round(effect(\"Characters Shown\")(1).value)))";
+    return header("dynamic typing, baked") + PEEK + textPart("thisProperty", "value") +
+      peekOr("LT_text(time).substr(0, Math.max(0, Math.round(effect(\"Characters Shown\")(1).value)))");
   }
 
   /* Dynamic rig: Characters Shown reads how much Source Text shows. */

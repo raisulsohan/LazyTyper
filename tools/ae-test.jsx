@@ -200,6 +200,9 @@
         var mid2 = c.expected[Math.floor(c.expected.length / 2)];
         var shown2 = String(LT.sourceText(layer).valueAtTime(mid2[0] * FD, false).text);
         check(name + ": baked text still types", shown2 === c.text.substr(0, mid2[1]), "\"" + shown2 + "\"");
+        var bi2 = call("selectionInfo", { detail: true }).layers[0];
+        check(name + ": baked, the panel reads the full text", bi2.text === c.text && bi2.length === c.text.length,
+          bi2.length + " \"" + bi2.text + "\"");
       }
       var u = call("unbake", {});
       cs = LT.control(layer, "Characters Shown");
@@ -239,6 +242,23 @@
     check(tag + "selection info", info.ok && info.layers.length === 1 && info.layers[0].rig === "stable", LT.stringify(info));
     var rm = call("removeRig", {});
     check(tag + "remove rig", rm.ok && !LT.control(first, "Typing") && !LT.findCursor(first), rm.msg);
+
+    // Dynamic rig erased with nothing typed after: the panel still reads the full text.
+    var dc = fx.cases[1];
+    var dyn = comp.layer(dc.id);
+    select(comp, dyn);
+    comp.time = 1;
+    var dShown = Math.round(LT.control(dyn, "Characters Shown").valueAtTime(1, false));
+    var der = call("eraseHere", { all: true, frames: 10 });
+    var dEnd = Math.round(LT.control(dyn, "Characters Shown").valueAtTime(dyn.outPoint - FD, false));
+    check(tag + "dynamic erase leaves nothing at the end", der.ok && dShown > 0 && dEnd === 0, der.msg || dShown + " then " + dEnd);
+    var dexpr = LT.sourceText(dyn).expression;
+    var di = call("selectionInfo", { detail: true }).layers[0];
+    check(tag + "dynamic erased: panel reads the full text", di.text === dc.text && di.length === dc.text.length && di.shown === dShown,
+      di.shown + " / " + di.length + " \"" + di.text + "\"");
+    check(tag + "dynamic erased: cursor needs no refresh", di.needsRefresh === false, di.needsRefresh);
+    check(tag + "selection info leaves the expression alone",
+      LT.sourceText(dyn).expressionEnabled && LT.sourceText(dyn).expression === dexpr && dexpr.indexOf("LT_PEEK") > 0, "");
     save();
   }
 

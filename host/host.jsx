@@ -115,6 +115,19 @@ var LT = (function () {
   }
 
   /*
+   * A Dynamic rig's full text and style at t, read without changing anything (the panel polls
+   * this). ExtendScript only reads Source Text after its expression, so it asks the expression:
+   * at LT_PEEK + t it shows the whole text (rig.js peekOr). A rig made before the peek existed
+   * shows its full text only once typing is done, so it is read at the layer's end.
+   */
+  function dynamicDoc(layer, t) {
+    var st = sourceText(layer);
+    var m = /var LT_PEEK = (-?[0-9]+);/.exec(st.expression);
+    if (m) return st.valueAtTime(parseInt(m[1], 10) + t, false);
+    return st.valueAtTime(Math.max(layer.inPoint, layer.outPoint - layer.containingComp.frameDuration), false);
+  }
+
+  /*
    * Runs fn with the Source Text expression switched off, so the layer's own full text and
    * style can be read. Only inside an undo group: the switch is an undoable change.
    */
@@ -733,8 +746,7 @@ var LT = (function () {
     var st = sourceText(layer);
     if (type === "dynamic") {
       /* The guide follows the text by itself; only the style matters. */
-      var at = Math.max(layer.inPoint, layer.outPoint - layer.containingComp.frameDuration);
-      return hash(styleOf(st.valueAtTime(at, false)));
+      return hash(styleOf(dynamicDoc(layer, Math.max(layer.inPoint, layer.outPoint - layer.containingComp.frameDuration))));
     }
     var times = textTimes(layer);
     var s = "";
@@ -828,14 +840,8 @@ var LT = (function () {
       if (a.detail) {
         var full = "";
         try {
-          /*
-           * ExtendScript only ever reads Source Text after its expression (valueAtTime(t, true)
-           * and keyValue included), so for a Dynamic rig the full text is what shows at the
-           * layer's end, once the typing is done. Polling must not switch the expression off.
-           */
-          full = type === "dynamic" ?
-            String(sourceText(l).valueAtTime(Math.max(l.inPoint, l.outPoint - item.frameDuration), false).text) :
-            textOf(l, item.time);
+          /* Polling must not switch the expression off, so a Dynamic rig is asked (dynamicDoc). */
+          full = type === "dynamic" ? String(dynamicDoc(l, item.time).text) : textOf(l, item.time);
         } catch (e0) {}
         info.text = full.substr(0, 2000);
         if (type) {
