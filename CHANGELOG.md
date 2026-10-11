@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 - 2026-10-11
 
 - Mixed font sizes in a Stable rig: the cursor takes the size of the last character typed (it
   grows beside a big word and shrinks back after it), and the gap after a letter and the width

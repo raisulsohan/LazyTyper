@@ -7,7 +7,7 @@ signed: no extension manager, no Adobe setting to change.
 
 ## Install
 
-1. Download `LazyTyper-v1.1.2.zip` from the
+1. Download `LazyTyper-v1.2.zip` from the
    [releases page](https://github.com/raisulsohan/LazyTyper/releases) and unzip it anywhere (the
    Desktop is fine).
 2. Close After Effects. A running After Effects holds on to an older panel's files.
