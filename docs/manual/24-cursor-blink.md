@@ -21,7 +21,8 @@ set whether it blinks, how fast, whether it also blinks while typing, and how so
 | **Blink Softness** | 0 to 100 % | 0 | 0: a hard on and off. 100: a smooth fade in and out. Between: a mix of the two. |
 
 The blink follows the comp's time, starting on at 0 s, so two cursors with the same rate blink
-together. Cursor Opacity sets how solid "on" is (chapter 23).
+together. Cursor Opacity sets how solid "on" is, and Show Cursor off hides the cursor whatever the
+blink does (chapter 23).
 
 ## Step by step
 
@@ -40,5 +41,5 @@ together. Cursor Opacity sets how solid "on" is (chapter 23).
 
 ## Related
 
-- [23. Cursor Color and Cursor Opacity](23-cursor-colour.md)
+- [23. Show Cursor and the colour](23-cursor-colour.md)
 - [21. Characters Shown](21-characters-shown.md): what the blink reads.

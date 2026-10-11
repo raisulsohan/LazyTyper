@@ -81,11 +81,13 @@
   /*
    * Typing presets saved by 1.2.0 and earlier have no frame rate (they were made for 30 fps comps,
    * as far as anyone can tell) and none of the newer controls: rig.js brings them up to date so
-   * they type as before. The file is rewritten once, after a copy of the old one is kept.
+   * they type as before; cursor presets get the newer shape controls at values that keep their
+   * look (offsets in pixels). The file is rewritten once, after a copy of the old one is kept.
    */
   (function () {
     var changed = false;
     for (var i = 0; i < saved.typing.length; i++) if (RIG.upgradeTypingPreset(saved.typing[i])) changed = true;
+    for (var c = 0; c < saved.cursor.length; c++) if (RIG.upgradeCursorPreset(saved.cursor[c])) changed = true;
     if (!changed) return;
     if (loadJson("presets-before-1.3.json", null) === null) saveJson("presets-before-1.3.json", loadJson("presets.json", saved));
     saveJson("presets.json", saved);
@@ -294,6 +296,10 @@
     $("btnApplyTyping").classList.toggle("is-disabled", !hasRig);
     $("btnAddCursor").classList.toggle("hidden", !(rig && !rig.cursor));
     $("speedHint").textContent = rig ? "for " + rig.name : (hasText ? "for " + layers[0].name : "");
+    /* The baked-Refresh question only stands while a baked rig is selected. */
+    var anyBaked = false;
+    for (var b = 0; b < layers.length; b++) if (layers[b].rig && layers[b].baked) anyBaked = true;
+    if (pendingRefresh && !anyBaked) closeRebake();
     drawRhythm();
   }
 
@@ -549,6 +555,47 @@
     }
   }
 
+  /*
+   * Refresh, or with Shift, switch the selected rigs between Dynamic and Stable. A baked rig is
+   * baked again from its controls, which puts back keystrokes moved by hand, so the panel asks
+   * first (the host refuses a baked rig without rebake).
+   */
+  var pendingRefresh = null;
+
+  function onRefresh(e) {
+    var convert = !!(e && e.shiftKey);
+    var baked = false;
+    for (var i = 0; i < info.layers.length; i++) if (info.layers[i].rig && info.layers[i].baked) baked = true;
+    if (baked) {
+      pendingRefresh = { convert: convert };
+      $("rebakeText").textContent = (convert ? "Switching a baked rig" : "This rig is baked. Refresh") +
+        " bakes it again from its controls: keystrokes moved by hand go back to where the controls put them.";
+      $("btnRebakeOk").textContent = convert ? "Switch and bake" : "Refresh and bake";
+      $("rebakeRow").classList.remove("hidden");
+      return;
+    }
+    runRefresh(convert, false);
+  }
+
+  function closeRebake() {
+    pendingRefresh = null;
+    $("rebakeRow").classList.add("hidden");
+  }
+
+  function runRefresh(convert, rebake) {
+    closeRebake();
+    simple("btnRefresh", "refreshRig", { convert: convert, rebake: rebake }, function (res) {
+      var done = res.done || [];
+      var parts = [];
+      for (var i = 0; i < done.length; i++) {
+        parts.push(done[i] + (convert ? " to " + (res.types[i] === "dynamic" ? "Dynamic" : "Stable") : ""));
+      }
+      if (!parts.length) return "Nothing refreshed.";
+      return (convert ? "Switched " : "Refreshed ") + parts.join(", ") + "." +
+        (res.rebaked && res.rebaked.length ? " Baked again: " + res.rebaked.join(", ") + "." : "");
+    });
+  }
+
   function onApplyTyping() {
     var p = findPreset("typing", $("typingPreset").value);
     simple("btnApplyTyping", "applyValues", { kind: "typing", values: p.values, fps: p.fps }, "Applied “" + p.name + "”.");
@@ -699,13 +746,13 @@
         "Typing stops here and " + (all ? "everything" : "the last " + chars + " characters") +
         " backspace away over " + frames + " frames. Start typing again later to type on.");
     });
-    on("btnRefresh", "click", function () {
-      simple("btnRefresh", "refreshRig", {}, function (res) { return "Refreshed " + (res.done || []).join(", ") + "."; });
-    });
+    on("btnRefresh", "click", onRefresh);
+    on("btnRebakeOk", "click", function () { if (pendingRefresh) runRefresh(pendingRefresh.convert, true); });
+    on("btnRebakeCancel", "click", closeRebake);
     on("btnBake", "click", onBake);
     on("status", "click", function () {
       var rig = firstRig();
-      if (rig && rig.needsRefresh) $("btnRefresh").click();
+      if (rig && rig.needsRefresh) onRefresh(null);
     });
     on("btnRemove", "click", function () {
       simple("btnRemove", "removeRig", {}, function (res) { return "Removed the rig from " + (res.done || []).join(", ") + "."; });
@@ -748,6 +795,7 @@
       return { ok: true, values: v, layer: "Headline", fps: 30 };
     }
     if (name === "createRig") return { ok: true, made: ["Headline"], skipped: [], problems: [] };
+    if (name === "refreshRig") return { ok: true, done: ["Headline"], types: [a.convert ? "stable" : "dynamic"], rebaked: a.rebake ? ["Headline"] : [], skipped: [], problems: [] };
     return { ok: true, done: ["Headline"] };
   }
 

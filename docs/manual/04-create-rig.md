@@ -51,10 +51,11 @@ Timeline), the Timeline lists only the texts and their cursors:
 - Adds the 25 typing controls to each text layer (chapters 13 to 21), with the typing style's values.
 - Puts the typing expression on the layer: on *Characters Shown* and a text animator for Stable, on
   *Source Text* for Dynamic (chapter 3).
-- With a cursor: adds a shape layer named *‹layer› Cursor* above the text, parented to it, with the
-  same in and out points and label colour (3D when the text is 3D), and its controls set from the
-  cursor preset. The cursor takes the **colour of the text** when the text has a fill (the yellow
-  caption above has a yellow cursor).
+- With a cursor: adds a shape layer named *‹layer› Cursor* above the text, parented to it (for
+  Dynamic, to its guide), with the same in and out points and label colour (3D when the text is 3D),
+  and its controls set from the cursor preset. The cursor takes the **colour of the text** (the
+  yellow caption above has a yellow cursor; white when the text has no fill): *Use Text Color* is
+  on, chapter 23.
 - Measures the font where the time indicator is (for Stable, at every Source Text keyframe), so the
   cursor fits the text.
 - All of it as one undo step, *LazyTyper: Create Typing Rig*.

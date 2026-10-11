@@ -17,6 +17,8 @@ changed), amber ones are warnings (the rest was done).
 | *‹layer› already has a rig* | Create on a rigged layer (skipped) | Remove it first, or change it with the other cards |
 | *‹layer› has its own Source Text expression* | a Dynamic rig needs Source Text for itself (skipped) | make a Stable rig, or take your expression off |
 | *‹layer› is already baked* | Bake on a baked rig among others (skipped) | nothing to do; Shift+click to unbake |
+| *‹layer› is baked: Refresh would bake it again* | the panel did not know the rig was baked when Refresh was clicked (skipped) | click Refresh again and answer the question in the Rig card (chapter 9) |
+| *‹layer› shows its first font size and colour as a Dynamic rig …* | a Stable rig with mixed styles was switched to Dynamic (done; amber) | nothing, or Shift+click Refresh again to switch back |
 | *After Effects could not outline "‹layer›".* | a Stable rig measures the text with Create Shapes from Text, and it failed | check that the layer has visible text at the time indicator, then try again; or use Dynamic |
 | *‹layer›: ‹an expression error›* | an expression reported an error right after it was written | Refresh; if it stays, see "Expressions" below |
 | *Give the preset a name.* | Save with an empty name | type a name |
@@ -40,6 +42,24 @@ changed), amber ones are warnings (the rest was done).
 - The font, size, tracking, alignment or box changed after the rig was made: click **Refresh**
   (chapter 9). For a Stable rig, also after changing the text.
 - An offset is set on the cursor layer (chapter 27).
+- The cursor or the guide was re-parented by hand: the cursor finds its text through its parent
+  (chapter 22). Undo that, or Remove the rig and make it again.
+
+### A copied rig's cursor stays on the original line
+
+- The rig was made before LazyTyper 1.3: its cursor follows the original through its Text Layer
+  control. Delete the copy, select the original, click **Refresh** once, and copy it again.
+- A Dynamic rig was copied without its guide (it is shy, so Hide Shy Layers may hide it): delete
+  the copied cursor, select the copied text and click **Add cursor** (chapter 22).
+
+### The cursor's colour does not change
+
+- **Use Text Color** is on, so Cursor Color is not used: switch it off (chapter 23).
+- The text's colours changed and the cursor takes them: click the amber status line to refresh.
+
+### The cursor is gone
+
+- **Show Cursor** is off, or keyframed off at this time (chapter 23), or Cursor Opacity is 0.
 
 ### A preset types slower or faster than it says
 
@@ -71,6 +91,11 @@ Project Settings › Expressions), or **Bake** the rig, which makes it instant i
 ### Erase or Start typing does nothing
 
 The rig is baked: unbake, change, bake again (chapter 10).
+
+### Keystrokes I moved by hand went back
+
+Refresh on a baked rig bakes it again from its controls (the panel asks first, chapter 9). Undo
+(Ctrl+Z) brings the moved keys back.
 
 ### Expressions
 

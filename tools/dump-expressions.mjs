@@ -16,7 +16,8 @@ const set = rig.expressionSet();
 let n = 0;
 for (const [name, src] of Object.entries(set)) {
   if (name === "version") continue;
-  const body = src.replace("/*LT_DATA*/", "[0,100,[0,0,10,0]]").replace("/*LT_SIZES*/", "[0,100]")
+  const body = src.replace("/*LT_DATA*/", "[0,100,[0,0,10,0]]").replace("/*LT_SIZES*/", "[0,100,100,[100,50]]")
+    .replace("/*LT_COLORS*/", "[0,[1,1,1],[[1,1,1],[1,0,0]]]").split("/*LT_TEXT*/").join("parent")
     .replace("/*LT_METRICS*/", "var SIZE = 100, LEAD = 120, B0 = 0, X0 = 0, SPW = 25, GAP = 4;");
   fs.writeFileSync(path.join(dir, `${name}.js`), body, "utf8");
   n++;

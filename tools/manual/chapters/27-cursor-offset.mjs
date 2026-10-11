@@ -1,4 +1,4 @@
-// Chapter 27: X Offset and Y Offset.
+// Chapter 27: Offset Unit, X Offset and Y Offset (new rigs count offsets in % of the font size).
 import { cursorChapter } from "../cursor-chapter.mjs";
 
 export const { run } = cursorChapter({
@@ -12,7 +12,7 @@ export const { run } = cursorChapter({
     { label: "Y Offset 12", values: { "Y Offset": 12 } },
     { label: "Underscore, Y Offset −6", preset: "b:Underscore", values: { "Y Offset": -6 } }
   ],
-  ring: [["X Offset", "Y Offset"], 2],
+  ring: [["Offset Unit", "X Offset", "Y Offset"], 2],
   still: 3.2,
   size: 72,
   gap: 115

@@ -97,6 +97,21 @@ fps24.expected = lazyTyperRun({
   time: 9.9, fd: 1 / 24, start: 0, record: true, pauses: [], num: (n) => at24[n], text: () => fps24.text
 }).map(([t, k]) => [Math.round(t * 24), k]);
 
+// Real 1.2.0 rigs: built in After Effects by 1.2.0's own host and rig.js (tools/fixtures), then
+// refreshed by this version; they must type, sit and look the same.
+const rig12 = require("./fixtures/rig-1.2.0.js");
+const v12 = {
+  host: path.join(root, "tools", "fixtures", "host-1.2.0.jsx").replace(/\\/g, "/"),
+  args: {
+    textControls: rig12.TEXT_CONTROLS,
+    cursorControls: rig12.CURSOR_CONTROLS,
+    typing: Object.assign({}, rig12.TYPING_PRESETS[1].values),
+    cursorValues: Object.assign({}, rig12.CURSOR_PRESETS[0].values),
+    expr: rig12.expressionSet(),
+    labels: rig12.DEFAULT_KEY_LABELS
+  }
+};
+
 const expr = rig.expressionSet();
 const args = {
   textControls: rig.TEXT_CONTROLS,
@@ -130,7 +145,8 @@ for (const engine of engines) {
   }
   const fr = JSON.parse(fs.readFileSync(fresh, "utf8"));
   if (fr.backup) console.log(`  (the open project was saved first to ${fr.backup})`);
-  fs.writeFileSync(path.join(dir, "fixture.json"), JSON.stringify({ root: root.replace(/\\/g, "/"), engine, args, cases, upgrade, fps24 }), "utf8");
+  fs.writeFileSync(path.join(dir, "fixture.json"), JSON.stringify({ root: root.replace(/\\/g, "/"), engine, args, cases, upgrade, fps24, v12,
+    presets: { underscore: rig.CURSOR_PRESETS[1].values } }), "utf8");
   const resultFile = path.join(dir, `results-${engine}.json`);
   fs.rmSync(resultFile, { force: true });
   try {

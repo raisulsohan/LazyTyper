@@ -46,7 +46,7 @@ It adds to **Slow/Fast: Same Hand** (chapter 20), since the same finger is alway
 A rig made with LazyTyper 1.2.0 or earlier gets Same Finger at 0 when you click **Refresh**, so its
 timing stays as it was.
 
-![Chart: the line with all three at 0, at the defaults, and with each one raised, the keys each one slows highlighted](media/18-slow-words-chart.png)
+![Chart: the line with all three at 0, at the defaults, with each one raised, and with Same Finger at 300 %, the keys each one slows highlighted](media/18-slow-words-chart.png)
 
 For "Jack quickly fixed the extraordinary vintage jukebox" (52 characters):
 

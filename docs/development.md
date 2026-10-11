@@ -28,8 +28,17 @@ holds no copy of them.
 | Layer | Stable | Dynamic |
 |---|---|---|
 | Text layer | the controls; *Characters Shown* runs the engine; an animator **LazyTyper** (Opacity 0, index range from the first untyped character) | the controls; **Source Text** runs the engine and shows `text.substr(0, count)`; *Characters Shown* reads the shown length back |
-| Cursor (shape layer, comment `LazyTyper cursor`) | parented to the text; position from a table of cursor points per Source Text keyframe, measured with *Create Shapes from Text* | parented to the text; position from the guide's bounds |
+| Cursor (shape layer, comment `LazyTyper cursor`) | parented to the text, which its expressions reach as `parent`; position from a table of cursor points per Source Text keyframe, measured with *Create Shapes from Text*; size and colour tables per character | parented to the guide (`parent`; the text is `parent.parent`); position from the guide's bounds |
 | Guide (comment `LazyTyper guide`) | none | a hidden, disabled guide copy parented to the text with an identity transform; shows what the text shows, and an animator (Scale 0, an Expression Selector on Characters Excluding Spaces that leaves out the last unit) makes `sourceRectAtTime` the box of that one unit |
+
+The links are parenting only: After Effects carries parenting over to layers duplicated or pasted
+together, so a copied rig works on its own. The host finds a rig's cursor and guide the same way
+(`cursorOwner`, `findGuide`). Cursors made before 1.3.0 also had Text Layer and Guide Layer
+controls; Refresh takes them off.
+
+Refresh rebuilds a rig as its own type or, with `convert`, as the other one (`rebuild` in
+host.jsx); a baked rig is unbaked, rebuilt and baked again, only when the call says `rebake`
+(the panel asks first).
 
 Baking replaces *Characters Shown*'s expression with hold keyframes (labelled by
 character class) from one recorder run; a Dynamic rig's Source Text then switches to an
@@ -68,7 +77,16 @@ Found by `tools/spikes/spikes.jsx` and later probes in After Effects 26.5:
   character's size: a Stable rig's cursor sizes (`charSizes`, `cursorSizes` in host.jsx) come
   from it. A font, size or tracking change on part of the text moves `baselineLocs` (each
   line's start and end) and the text's bounds, which is what the Refresh fingerprint
-  compares; a colour change moves neither.
+  compares; a colour change moves neither. `characterRange(i, i + 1).fillColor` and
+  `.applyFill` read one character's colour (`charColors`); a cursor in the text's colour keeps a
+  second fingerprint of those, checked only while Use Text Color is on.
+- Edit › Duplicate and Copy/Paste (also into another comp) keep **parenting** between the layers
+  copied together. They do **not** carry Layer Control links over: a duplicate's still point at
+  the original layers, a paste into another comp points at nothing. A Layer Control cannot take
+  an expression. (`tools/spikes/copy-rig.jsx`.)
+- Assigning `layer.parent` keeps the child where it is on screen (its values change);
+  `setParentWithJump` keeps its values. Removing a parent also keeps its children on screen by
+  changing their values, so a guide is only removed after its cursor went back under the text.
 
 ## Rules the code keeps
 
@@ -89,6 +107,12 @@ Found by `tools/spikes/spikes.jsx` and later probes in After Effects 26.5:
   saved presets. A meaning that changes for some values gets `oldFloor` (Fast: Repeated
   Letters below 0 did nothing before). `npm test` replays 1.2.0's engine
   (`tools/fixtures/engine-1.2.0.js`) against this one on old values, frame for frame.
+- **Older cursors keep their look.** A new cursor control gets `since`, and `oldValue` when a
+  new rig starts elsewhere (Use Text Color: on for new rigs, off for older cursors; Offset Unit:
+  % for new rigs, pixels for older ones). Refresh adds it with that value, and `upgradeCursorPreset`
+  does the same for saved cursor presets. `npm test` replays 1.2.0's cursor expressions
+  (`tools/fixtures/rig-1.2.0.js`) against these, and `npm run test:ae` builds real 1.2.0 rigs with
+  `tools/fixtures/host-1.2.0.jsx` and compares them frame by frame before and after a Refresh.
 - **Presets are per frame rate.** A typing preset keeps the fps its frame counts were made at;
   controls marked `frames` (Frames Per Character, Total Duration) are converted to the comp's
   rate by the host (`forComp`) on Create and Apply, and by the panel (`valuesForFps`) for the

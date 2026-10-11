@@ -34,5 +34,5 @@ into a circle and a tall thin one into a pill. Values outside 0 to 100 act as 0 
 
 ## Related
 
-- [25. Width, Top and Bottom](25-cursor-shape.md)
+- [25. Width, Top, Bottom and Size From](25-cursor-shape.md)
 - [12. Cursor presets](12-cursor-presets.md)

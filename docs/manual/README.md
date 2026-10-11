@@ -53,12 +53,12 @@ show a grey break where they do.
 
 ## Part 4. The cursor layer's controls
 
-22. [Text Layer and Guide Layer](22-cursor-links.md)
-23. [Cursor Color and Cursor Opacity](23-cursor-colour.md)
+22. [How the cursor finds its rig](22-cursor-links.md)
+23. [Show Cursor, Use Text Color, Cursor Color and Cursor Opacity](23-cursor-colour.md)
 24. [Blink, Blinks per Second, Blink While Typing and Blink Softness](24-cursor-blink.md)
-25. [Width, Top and Bottom](25-cursor-shape.md)
+25. [Width, Top, Bottom and Size From](25-cursor-shape.md)
 26. [Roundness, Individual Corners and the four corners](26-cursor-corners.md)
-27. [X Offset and Y Offset](27-cursor-offset.md)
+27. [Offset Unit, X Offset and Y Offset](27-cursor-offset.md)
 
 ## Part 5. Recipes and help
 

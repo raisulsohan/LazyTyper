@@ -37,9 +37,14 @@ rhythm stays natural, and it stays natural when you change the text.
 - **Two rig types**: *Dynamic* (re-wraps and re-centres as it types) and *Stable* (keeps mixed fonts and colours).
 - **Bake to keyframes** coloured by what is typed (letters, numbers, punctuation, spaces,
   deleting) and nudge any keystroke by hand. Shift+click to unbake.
-- **A real cursor layer**: colour, blink rate and softness, solid while typing, width that
-  grows to the right, top and bottom set separately, all four corners rounded together or
-  one by one, offsets. Presets: Vertical, Underscore, Box, and your own.
+- **A real cursor layer**: the text's colour or your own, on and off, blink rate and softness,
+  solid while typing, width that grows to the right, top and bottom set separately, all four
+  corners rounded together or one by one, offsets in pixels or in % of the font size. With
+  mixed font sizes it takes the size (and colour) of the character before or after it, and you
+  choose whether its height and width grow. Presets: Vertical, Underscore, Box, and your own.
+- **Switch a rig between Dynamic and Stable** with Shift+click Refresh, keeping every setting.
+- **Copy a whole rig** (text, cursor, guide) with Duplicate or copy and paste, into the same comp
+  or another: the copy is a rig of its own.
 - Works with both expression engines (JavaScript and Legacy ExtendScript); everything is
   plain expressions, so a rig keeps working without the panel.
 
@@ -93,10 +98,20 @@ On the **text layer** (Effect Controls):
 **Matching a typist:** a fast typist has a quick base speed, low variance, a few
 slow-downs and some speed-ups; a slow typist the opposite.
 
-On the **cursor layer**: Text Layer, Cursor Color, Cursor Opacity, Blink, Blinks per
-Second, Blink While Typing (off: solid while keys come in), Blink Softness, Width, Top,
-Bottom (percent of the font size), Roundness, Individual Corners with Top Left, Top Right,
-Bottom Right, Bottom Left, X Offset, Y Offset.
+On the **cursor layer** (it is parented to its text, or for a Dynamic rig to the guide, which
+is parented to the text; that is how it finds them):
+
+| Control | What it does |
+|---|---|
+| Show Cursor | Off hides the cursor, whatever its opacity. Keyframe it to show it only some of the time. |
+| Use Text Color | On: the text's fill colour (Stable: the colour of the character the size comes from). Off: Cursor Color. |
+| Cursor Color, Cursor Opacity | The colour when Use Text Color is off; how solid it is. |
+| Blink, Blinks per Second, Blink While Typing, Blink Softness | Blinking; while typing it stays solid unless Blink While Typing is on. |
+| Width, Top, Bottom | % of the font size: the width growing to the right, the top above the baseline, the bottom below. |
+| Size From | *Character Before* or *Character After*: whose font size it takes when sizes are mixed (Stable). |
+| Height Follows Size, Width Follows Size | Off: that dimension keeps the text's main size beside a bigger or smaller character. |
+| Roundness, Individual Corners, Top Left … Bottom Left | Rounded corners, all four or one by one. |
+| Offset Unit, X Offset, Y Offset | Moves the cursor, in *Pixels* or in *% of Font Size* (X like the width, Y like the height). |
 
 ## The panel
 
@@ -105,9 +120,11 @@ Bottom Right, Bottom Left, X Offset, Y Offset.
   (it keeps the comp's frame rate, and is converted for comps at other rates).
 - **At the playhead**: *Start typing*, *Stop typing*, *Add pause*, *Erase* (everything or
   the last N characters over N frames).
-- **Rig**: *Refresh*, *Bake* (Shift+click: unbake), *Remove* (the cursor and guide go too).
-  When the font, size, layout or (Stable) text changed since the cursor was measured, the top
-  of the panel turns amber and says so; click it to refresh.
+- **Rig**: *Refresh* (Shift+click: switch between Dynamic and Stable), *Bake* (Shift+click:
+  unbake), *Remove* (the cursor and guide go too). When the font, size, layout, (Stable) text
+  or, for a cursor in the text's colour, the colours changed since the cursor was measured, the
+  top of the panel turns amber and says so; click it to refresh. Refresh on a baked rig bakes it
+  again from its controls; the panel asks first, because keystrokes moved by hand go back.
 - **Cursor**: apply or save cursor presets, add a cursor to a rig that has none.
 - **Settings**: the label colours baked keyframes get.
 
@@ -119,8 +136,11 @@ Delete and retype: *Stop typing*, *Erase*, keyframe the new Source Text, *Start 
   several times faster than Legacy ExtendScript; baking makes any rig instant.
 - A rig is made of ordinary expression controls, a text animator and expressions. Sending a
   project to someone without LazyTyper is fine.
-- A rig made with an earlier version keeps typing exactly as it did. **Refresh** gives it the
-  newer controls, at values that change nothing until you set them.
+- A rig made with an earlier version keeps typing and looking exactly as it did. **Refresh**
+  gives it the newer controls, at values that change nothing until you set them.
+- To copy a rig, select its text, cursor and guide layers (the guide is shy: switch off *Hide
+  Shy Layers* to see it) and Duplicate, or copy and paste into any comp. A rig made before 1.3
+  needs one Refresh first.
 
 ## Building from source
 

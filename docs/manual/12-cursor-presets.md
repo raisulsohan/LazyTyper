@@ -1,7 +1,7 @@
 # 12. Cursor presets
 
-A **cursor preset** is a whole cursor shape and blink: width, top, bottom, corners, offsets,
-opacity and blink settings. LazyTyper comes with three; any rig's cursor can be saved as a preset of
+A **cursor preset** is a whole cursor shape and blink: width, top, bottom, how it follows mixed font
+sizes, corners, offsets, opacity and blink settings. LazyTyper comes with three; any rig's cursor can be saved as a preset of
 your own.
 
 ![Three lines with the Vertical, Underscore and Box cursors, rendered by After Effects](media/12-presets.png)
@@ -26,10 +26,13 @@ Card **5 · Cursor**:
 | Width | 7 | 55 | 55 |
 | Top | 80 | −6 | 80 |
 | Bottom | 16 | 14 | 18 |
+| Width Follows Size | off | on | on |
 | Roundness (all four corners) | 0 | 0 | 8 |
 
 All three: Cursor Opacity 100, Blink on at 1 per second, Blink While Typing off, Blink Softness 0,
-Individual Corners off, no offsets. Sizes are percentages of the font size (chapter 25).
+Size From Character Before, Height Follows Size on, Individual Corners off, Offset Unit % of Font
+Size, no offsets. Sizes are percentages of the font size (chapter 25). Beside a bigger word all three
+grow taller; the Vertical bar keeps its width, Underscore and Box grow wider too.
 
 ## Apply a preset
 
@@ -41,8 +44,8 @@ Individual Corners off, no offsets. Sizes are percentages of the font size (chap
 
 ![Clicking the Box preview chooses Box; Apply sets it](media/12-chip.gif)
 
-A preset sets 16 cursor controls: everything but **Cursor Color** and the two layer links. The colour
-stays as it is (by default the text's colour). A control with keyframes gets a keyframe at the time
+A preset sets 20 cursor controls: everything but **Show Cursor**, **Use Text Color** and **Cursor
+Color**, so the colour stays as it is (by default the text's colour, chapter 23). A control with keyframes gets a keyframe at the time
 indicator. One undo step.
 
 ## Add a cursor to a rig without one
@@ -66,11 +69,14 @@ The new cursor is measured and set up exactly as Create would have made it.
 
 ![Save as preset typed and saved, then Delete](media/12-save.gif)
 
-Saved cursor presets are in the same `presets.json` as the typing presets (chapter 5).
+Saved cursor presets are in the same `presets.json` as the typing presets (chapter 5). A cursor preset
+saved with LazyTyper 1.2 or earlier gets the newer controls the first time the panel opens, at values
+that keep its look: Size From Character Before, both Follow switches on, and its offsets in Pixels.
 
 ## Tips and pitfalls
 
-- **The colour is not part of a preset**: set Cursor Color on the cursor layer (chapter 23).
+- **The colour is not part of a preset**: set Use Text Color and Cursor Color on the cursor layer
+  (chapter 23).
 - **Clicking a preview only chooses**: press Apply to change the rig.
 - **Several rigs**: select them all and Apply once.
 

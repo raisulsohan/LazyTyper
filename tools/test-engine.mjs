@@ -367,7 +367,8 @@ for (const p of rig.TYPING_PRESETS) {
   const set = rig.expressionSet();
   for (const [k, src] of Object.entries(set)) {
     if (typeof src !== "string" || k === "version") continue;
-    const body = src.replace("/*LT_DATA*/", "[0,100,[0,0,10,0]]").replace("/*LT_SIZES*/", "[0,100]")
+    const body = src.replace("/*LT_DATA*/", "[0,100,[0,0,10,0]]").replace("/*LT_SIZES*/", "[0,100,100,100]")
+      .replace("/*LT_COLORS*/", "[0,[1,1,1],[1,1,1]]").split("/*LT_TEXT*/").join("parent")
       .replace("/*LT_METRICS*/", "var SIZE = 100, LEAD = 120, B0 = 0, X0 = 0, SPW = 25, GAP = 4;");
     try {
       new Function(body);
@@ -397,20 +398,180 @@ for (const p of rig.TYPING_PRESETS) {
   // The cursor shape takes the size of the last character typed when sizes are mixed.
   const shapeAt = (sizes, shown) => {
     const controls = { Width: 10, Top: 80, Bottom: 20, Roundness: 0, "Individual Corners": 0,
-      "Top Left": 0, "Top Right": 0, "Bottom Right": 0, "Bottom Left": 0 };
+      "Top Left": 0, "Top Right": 0, "Bottom Right": 0, "Bottom Left": 0, "Size From": 1,
+      "Height Follows Size": 1, "Width Follows Size": 1, "Offset Unit": 1, "X Offset": 0, "Y Offset": 0 };
     const textLayer = { effect: () => () => ({ value: shown }) };
-    const shape = vm.runInNewContext(set.cursorPath.replace("/*LT_SIZES*/", sizes), {
+    const shape = vm.runInNewContext(set.cursorPath.replace("/*LT_SIZES*/", sizes).split("/*LT_TEXT*/").join("parent"), {
       time: 1,
-      effect: (n) => (n === "Text Layer" ? () => textLayer : () => ({ value: controls[n] })),
+      parent: textLayer,
+      effect: (n) => () => ({ value: controls[n] }),
       createPath: (pts) => pts
     });
     const ys = shape.map((p) => p[1]);
     return Math.round(Math.max(...ys) - Math.min(...ys));
   };
-  check("cursor size: one size for all", shapeAt("[0,50]", 3) === 50, shapeAt("[0,50]", 3));
-  check("cursor size: follows the last character typed", shapeAt("[0,[50,50,100,100,50]]", 2) === 100 && shapeAt("[0,[50,50,100,100,50]]", 4) === 50,
-    `${shapeAt("[0,[50,50,100,100,50]]", 2)} ${shapeAt("[0,[50,50,100,100,50]]", 4)}`);
-  check("cursor size: past the end keeps the last", shapeAt("[0,[50,100]]", 9) === 100, shapeAt("[0,[50,100]]", 9));
+  check("cursor size: one size for all", shapeAt("[0,50,50,50]", 3) === 50, shapeAt("[0,50,50,50]", 3));
+  const mixed = "[0,50,[50,50,100,100,50],[50,100,100,50,50]]";
+  check("cursor size: follows the last character typed", shapeAt(mixed, 2) === 100 && shapeAt(mixed, 4) === 50,
+    `${shapeAt(mixed, 2)} ${shapeAt(mixed, 4)}`);
+  check("cursor size: past the end keeps the last", shapeAt("[0,50,[50,100],[100,100]]", 9) === 100, shapeAt("[0,50,[50,100],[100,100]]", 9));
+}
+
+// 18. The cursor (1.3.0): parenting links, size from the character before or after, height and
+// width following the size or not, offsets in % of the font size, Show Cursor, the text's colour.
+// A cursor made with 1.2.0 looks the same once Refresh has rewritten it with the values Refresh
+// gives it (tools/fixtures/rig-1.2.0.js is 1.2.0's rig.js).
+{
+  const old = require("./fixtures/rig-1.2.0.js");
+  const oldSet = old.expressionSet();
+  const set = rig.expressionSet();
+  const hostCtx = {};
+  vm.createContext(hostCtx);
+  vm.runInContext(fs.readFileSync(new URL("../host/host.jsx", import.meta.url), "utf8"), hostCtx);
+  const LT = hostCtx.LT;
+  const refreshed = {};
+  for (const c of rig.CURSOR_CONTROLS) refreshed[c.name] = c.oldValue !== undefined ? c.oldValue : c.value;
+
+  // A fake cursor layer: controls by name, a text layer showing `shown` characters.
+  const env = (controls, shown, extra) => {
+    const textLayer = { effect: (n) => () => ({ value: n === "Characters Shown" ? shown : 0 }) };
+    return Object.assign({
+      time: 1,
+      parent: textLayer,
+      effect: (n) => (n === "Text Layer" ? () => textLayer : () => {
+        if (!(n in controls)) throw new Error(`no control ${n}`);
+        return { value: controls[n] };
+      }),
+      createPath: (pts, ins, outs) => ({ pts, ins, outs })
+    }, extra || {});
+  };
+  const runNew = (src, controls, shown, data) => vm.runInNewContext(src.split("/*LT_TEXT*/").join("parent")
+    .replace("/*LT_SIZES*/", data.sizes || "[0,100,100,100]").replace("/*LT_COLORS*/", data.colors || "[0,[1,1,1],[1,1,1]]"), env(controls, shown));
+  const runOld = (src, controls, shown, sizes) => vm.runInNewContext(src.replace("/*LT_SIZES*/", sizes), env(controls, shown));
+  const round = (v) => JSON.stringify(v, (k, x) => (typeof x === "number" ? Math.round(x * 1e6) / 1e6 : x));
+
+  // 1.2.0's shape at the position plus its offsets == the new shape (offsets inside) at the point.
+  let seed = 11;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const pick = (lo, hi) => Math.round((lo + rand() * (hi - lo)) * 10) / 10;
+  let bad = [];
+  for (let r = 0; r < 60; r++) {
+    const c = Object.assign({}, refreshed, {
+      Width: pick(-5, 80), Top: pick(-20, 120), Bottom: pick(-20, 60), Roundness: pick(0, 100),
+      "Individual Corners": rand() < 0.3 ? 1 : 0, "Top Left": pick(0, 100), "Top Right": pick(0, 100),
+      "Bottom Right": pick(0, 100), "Bottom Left": pick(0, 100), "X Offset": pick(-30, 30), "Y Offset": pick(-30, 30)
+    });
+    const before = [40, 40, 90, 90, 90, 40, 40];
+    const oldSizes = r % 2 ? "[0,64]" : `[0,[${before.join(",")}]]`;
+    const newSizes = r % 2 ? "[0,64,64,64]" : `[0,40,[${before.join(",")}],[40,90,90,40,40,40,40]]`;
+    const shown = r % 7;
+    const o = runOld(oldSet.cursorPath, c, shown, oldSizes);
+    const n = runNew(set.cursorPath, c, shown, { sizes: newSizes });
+    const moved = o.pts.map(([x, y]) => [x + c["X Offset"], y + c["Y Offset"]]);
+    if (round(moved) !== round(n.pts) || round(o.ins) !== round(n.ins) || round(o.outs) !== round(n.outs)) {
+      if (bad.length < 3) bad.push(`${r}: ${round(moved)} vs ${round(n.pts)}`);
+    }
+  }
+  check("1.2.0 cursor shape unchanged after Refresh (60 random shapes, offsets now in the shape)", !bad.length, bad.join("; "));
+  bad = [];
+  for (let r = 0; r < 40; r++) {
+    const c = Object.assign({}, refreshed, { "Cursor Opacity": pick(0, 100), Blink: rand() < 0.7 ? 1 : 0,
+      "Blinks per Second": pick(0, 4), "Blink While Typing": rand() < 0.5 ? 1 : 0, "Blink Softness": pick(0, 100) });
+    const extra = { time: pick(0, 9) };
+    const shown = { value: 3, valueAtTime: (t) => (t < extra.time - 0.2 ? 2 : 3) };
+    const textLayer = { effect: () => () => shown };
+    const e2 = (src) => vm.runInNewContext(src.split("/*LT_TEXT*/").join("parent"), env(c, 3, Object.assign({}, extra, {
+      parent: textLayer,
+      effect: (n) => (n === "Text Layer" ? () => textLayer : () => ({ value: c[n] }))
+    })));
+    if (Math.abs(e2(oldSet.cursorOpacity) - e2(set.cursorOpacity)) > 1e-9 && bad.length < 3) bad.push(r);
+  }
+  check("1.2.0 cursor blink unchanged after Refresh (Show Cursor on)", !bad.length, bad.join(","));
+  const oldColor = vm.runInNewContext(oldSet.cursorColor, env({ "Cursor Color": [0.2, 0.4, 0.6, 1] }, 0));
+  const newColor = runNew(set.cursorColor, Object.assign({}, refreshed, { "Cursor Color": [0.2, 0.4, 0.6, 1] }), 0, { colors: "[0,[1,0,0],[1,0,0]]" });
+  check("1.2.0 cursor colour unchanged after Refresh (Use Text Color off)", round(oldColor.value) === round(newColor), `${round(oldColor.value)} ${round(newColor)}`);
+
+  // Show Cursor.
+  const hidden = runNew(set.cursorOpacity, Object.assign({}, refreshed, { "Show Cursor": 0, Blink: 0 }), 3, {});
+  const shownOp = runNew(set.cursorOpacity, Object.assign({}, refreshed, { "Show Cursor": 1, Blink: 0, "Cursor Opacity": 70 }), 3, {});
+  check("Show Cursor off hides it, on shows Cursor Opacity", hidden === 0 && shownOp === 70, `${hidden} ${shownOp}`);
+
+  // Size From, Height/Width Follows Size, Offset Unit.
+  const box = (controls, shown, sizes) => {
+    const p = runNew(set.cursorPath, Object.assign({}, refreshed, { Roundness: 0 }, controls), shown, { sizes }).pts;
+    const xs = p.map((q) => q[0]);
+    const ys = p.map((q) => q[1]);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)].map((v) => Math.round(v * 100) / 100);
+  };
+  // "ab CD": a and b at 50, C and D at 100; main size 50.
+  const sz = "[0,50,[50,50,50,50,100,100],[50,50,50,100,100,100]]";
+  const base = { Width: 10, Top: 80, Bottom: 20 };
+  check("size from before: after 'ab ' the space's size", box(base, 3, sz)[3] === 50);
+  check("size from after: after 'ab ' the C's size", box(Object.assign({ "Size From": 2 }, base), 3, sz)[3] === 100);
+  check("height follows, width does not (Vertical)", JSON.stringify(box(Object.assign({ "Width Follows Size": 0 }, base), 5, sz)) === JSON.stringify([0, -80, 5, 100]),
+    JSON.stringify(box(Object.assign({ "Width Follows Size": 0 }, base), 5, sz)));
+  check("width follows, height does not", JSON.stringify(box(Object.assign({ "Height Follows Size": 0 }, base), 5, sz)) === JSON.stringify([0, -40, 10, 50]),
+    JSON.stringify(box(Object.assign({ "Height Follows Size": 0 }, base), 5, sz)));
+  check("offsets in pixels", JSON.stringify(box(Object.assign({ "X Offset": 6, "Y Offset": -4 }, base), 5, sz).slice(0, 2)) === JSON.stringify([6, -84]));
+  check("offsets in % of the font size: X like the width, Y like the height",
+    JSON.stringify(box(Object.assign({ "Offset Unit": 2, "X Offset": 10, "Y Offset": 10, "Width Follows Size": 0 }, base), 5, sz).slice(0, 2)) === JSON.stringify([5, -70]),
+    JSON.stringify(box(Object.assign({ "Offset Unit": 2, "X Offset": 10, "Y Offset": 10, "Width Follows Size": 0 }, base), 5, sz)));
+
+  // Use Text Color: the colour of the character the size comes from.
+  const cols = "[0,[[1,1,1],[1,1,1],[1,0,0],[1,0,0]],[[1,1,1],[1,0,0],[1,0,0],[1,0,0]]]";
+  const col = (controls, shown) => JSON.stringify(runNew(set.cursorColor, Object.assign({}, refreshed, { "Cursor Color": [0, 0, 1, 1] }, controls), shown, { colors: cols }));
+  check("Use Text Color off: Cursor Color", col({ "Use Text Color": 0 }, 1) === "[0,0,1,1]", col({ "Use Text Color": 0 }, 1));
+  check("Use Text Color: the character before", col({ "Use Text Color": 1 }, 1) === "[1,1,1,1]" && col({ "Use Text Color": 1 }, 2) === "[1,0,0,1]");
+  check("Use Text Color: the character after", col({ "Use Text Color": 1, "Size From": 2 }, 1) === "[1,0,0,1]");
+  check("Use Text Color: one colour for all", JSON.stringify(runNew(set.cursorColor, Object.assign({}, refreshed, { "Use Text Color": 1 }), 0,
+    { colors: "[0,[0.5,0.5,0],[0.5,0.5,0]]" })) === "[0.5,0.5,0,1]");
+
+  // The host's tables: which character the cursor takes after, the main size, colour lists.
+  const sizesOf = (text, each, after) => Array.from(LT.cursorSizes(text, each, 99, after)).join(",");
+  const oldCursorSizes = (text, sizes, b) => {
+    const out = [];
+    for (let k = 0; k <= text.length; k++) {
+      let at = k - 1;
+      if (at < 0 || /[\r\n\u0003\u2028\u2029]/.test(text.charAt(at))) at = k < text.length ? k : k - 1;
+      out.push(at >= 0 && at < text.length ? sizes[at] : b);
+    }
+    return out.join(",");
+  };
+  const t1 = "ab CD\rx";
+  const s1 = [50, 50, 50, 100, 100, 40, 60];
+  check("sizes before: as 1.2.0 did", sizesOf(t1, s1, false) === oldCursorSizes(t1, s1, 99), sizesOf(t1, s1, false));
+  check("sizes after: the next character, the last at a line end", sizesOf(t1, s1, true) === "50,50,50,100,100,100,60,60", sizesOf(t1, s1, true));
+  check("sizes: an empty text keeps the base", sizesOf("", [], true) === "99" && sizesOf("", [], false) === "99");
+  check("main size: what most characters have", LT.mainSize("Small BIG small", [64, 64, 64, 64, 64, 64, 128, 128, 128, 64, 64, 64, 64, 64, 64], 128) === 64);
+  check("main size: spaces do not count", LT.mainSize("A b", [10, 50, 10], 99) === 10 && LT.mainSize("  ", [5, 5], 99) === 99);
+  check("colours: one for all", LT.colorsData([[1, 1, 1], [1, 1, 1]], [0, 0, 0]) === "[1,1,1]");
+  check("colours: a list when they differ", LT.colorsData([[1, 1, 1], [1, 0, 0]], [0, 0, 0]) === "[[1,1,1],[1,0,0]]");
+
+  // Presets: every built-in sets every cursor preset key; old saved ones keep their look.
+  for (const p of rig.CURSOR_PRESETS) {
+    const missing = rig.CURSOR_PRESET_KEYS.filter((k) => p.values[k] === undefined);
+    check(`${p.name} cursor preset sets every key`, !missing.length, missing.join(", "));
+  }
+  const cnames = new Set(rig.CURSOR_CONTROLS.map((c) => c.name));
+  check("cursor preset keys are cursor controls", rig.CURSOR_PRESET_KEYS.every((k) => cnames.has(k)));
+  check("Vertical keeps its width beside a big word, Underscore and Box grow",
+    rig.CURSOR_PRESETS.map((p) => p.values["Width Follows Size"]).join(",") === "0,1,1");
+  const savedCursor = { name: "Mine", values: Object.assign({}, old.CURSOR_PRESETS[0].values, { "X Offset": 12 }) };
+  check("old cursor preset: upgraded", rig.upgradeCursorPreset(savedCursor) === true);
+  check("old cursor preset: offsets stay pixels, size follows as before", savedCursor.values["Offset Unit"] === 1 &&
+    savedCursor.values["X Offset"] === 12 && savedCursor.values["Size From"] === 1 &&
+    savedCursor.values["Height Follows Size"] === 1 && savedCursor.values["Width Follows Size"] === 1, JSON.stringify(savedCursor.values));
+  check("old cursor preset: no colour or Show Cursor added", savedCursor.values["Show Cursor"] === undefined && savedCursor.values["Use Text Color"] === undefined);
+  check("old cursor preset: upgrading twice changes nothing", rig.upgradeCursorPreset(savedCursor) === false);
+  // A control added later keeps an older cursor as it was.
+  for (const c of rig.CURSOR_CONTROLS) if (c.since) {
+    const v = c.oldValue !== undefined ? c.oldValue : c.value;
+    const asBefore = { "Show Cursor": 1, "Use Text Color": 0, "Size From": 1, "Height Follows Size": 1, "Width Follows Size": 1, "Offset Unit": 1 }[c.name];
+    check(`${c.name}: an older cursor gets ${asBefore}`, v === asBefore, v);
+  }
+  // No expression reads the old link controls any more.
+  check("cursor expressions use parenting, not Text Layer or Guide Layer",
+    ["stableCursorPosition", "dynamicCursorPosition", "cursorPath", "cursorOpacity", "cursorColor"].every((k) => !/Text Layer|Guide Layer/.test(set[k])));
 }
 
 // 14. Text units (grapheme clusters) for joined letters, as After Effects 26.5 counts them

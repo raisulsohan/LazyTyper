@@ -12,7 +12,7 @@ speed, key what happens at the playhead, look after the rig, shape its cursor.
 4. **2 · Typing speed**: presets, the rhythm strip, saving your own (chapter 5).
 5. **3 · At the playhead**: *Start typing*, *Stop typing*, *Add pause*, *Erase*
    (chapters [6](06-start-stop.md), [7](07-pauses.md) and [8](08-erase.md)).
-6. **4 · Rig**: *Refresh*, *Bake* / *Unbake*, *Remove* (chapters [9](09-refresh.md) to [11](11-remove.md)).
+6. **4 · Rig**: *Refresh* (Shift+click: switch Dynamic and Stable), *Bake* / *Unbake*, *Remove* (chapters [9](09-refresh.md) to [11](11-remove.md)).
 7. **5 · Cursor**: cursor presets, *Apply*, *Add cursor*, saving your own ([chapter 12](12-cursor-presets.md)).
 8. **Settings**: the colours baked keyframes get ([chapter 10](10-bake.md)).
 9. Under the cards: the version, and a link to raisulsohan.com.

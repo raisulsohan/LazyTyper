@@ -82,6 +82,9 @@ const click = (id, shift = false) =>
 const setSelect = (id, value) =>
   panel.evaluate(`(function(){ var s = document.getElementById(${JSON.stringify(id)}); s.value = ${JSON.stringify(value)}; s.dispatchEvent(new Event("change")); return s.value; })()`);
 const toastText = () => panel.evaluate("document.getElementById('toast').className.indexOf('hidden') < 0 ? document.getElementById('toastText').textContent : ''");
+/** Hides a toast still showing from an earlier step, so the next one read is the next action's. */
+const clearToast = () => panel.evaluate("document.getElementById('toast').className = 'toast hidden', 1");
+const isHidden = (id) => panel.evaluate(`document.getElementById(${JSON.stringify(id)}).classList.contains("hidden")`);
 async function waitToast(what) {
   for (let i = 0; i < 40; i++) {
     await sleep(500);
@@ -123,6 +126,21 @@ await waitToast();
 let i2c = await waitInfo((i) => i.layers[0] && !i.layers[0].needsRefresh, "Refresh clears the request");
 check("Refresh clears the request", !i2c.layers[0].needsRefresh);
 
+// 2c. Shift+click Refresh switches the rig to Stable, and again back to Dynamic.
+await clearToast();
+await click("btnRefresh", true);
+let t2d = await waitToast();
+check("Shift+click Refresh switches to Stable", /^Switched Headline to Stable\.$/.test(t2d), t2d);
+let i2d = await waitInfo((i) => i.layers[0] && i.layers[0].rig === "stable", "Headline is Stable");
+check("Headline is Stable with its cursor", i2d.layers[0].rig === "stable" && i2d.layers[0].cursor && !i2d.layers[0].needsRefresh);
+await screenshot("switched-stable");
+await clearToast();
+await click("btnRefresh", true);
+let t2e = await waitToast();
+check("Shift+click again switches back", /^Switched Headline to Dynamic\.$/.test(t2e), t2e);
+let i2e = await waitInfo((i) => i.layers[0] && i.layers[0].rig === "dynamic", "Headline is Dynamic again");
+check("Headline is Dynamic again with its cursor", i2e.layers[0].rig === "dynamic" && i2e.layers[0].cursor);
+
 // 3. A Stable rig with the Box cursor on the paragraph.
 select("Paragraph", "0");
 await waitInfo((i) => i.layers[0] && i.layers[0].name === "Paragraph", "panel follows the selection");
@@ -155,6 +173,28 @@ check("Headline is baked", i5.layers[0].baked);
 const bakeLabel = await panel.evaluate("document.getElementById('bakeLabel').textContent");
 check("button says Unbake", bakeLabel === "Unbake", bakeLabel);
 await screenshot("baked");
+
+// 5b. Refresh on a baked rig asks first; Cancel leaves it, "Refresh and bake" bakes it again.
+await clearToast();
+await click("btnRefresh");
+await sleep(500);
+check("baked Refresh asks first", !(await isHidden("rebakeRow")));
+const askText = await panel.evaluate("document.getElementById('rebakeText').textContent");
+check("the question says hand-moved keystrokes go back", /moved by hand go back/.test(askText), askText);
+check("nothing is done before the answer", (await toastText()) === "");
+await screenshot("rebake-question");
+await click("btnRebakeCancel");
+await sleep(300);
+check("Cancel closes the question", await isHidden("rebakeRow"));
+await click("btnRefresh");
+await sleep(500);
+await click("btnRebakeOk");
+let t5b = await waitToast();
+check("Refresh and bake", /^Refreshed Headline\. Baked again: Headline\.$/.test(t5b), t5b);
+check("the question is gone", await isHidden("rebakeRow"));
+let i5b = await waitInfo((i) => i.layers[0] && i.layers[0].baked, "still baked after the Refresh");
+check("still baked after the Refresh", i5b.layers[0].baked);
+
 await click("btnBake", true);
 await waitToast();
 let i6 = await waitInfo((i) => i.layers[0] && !i.layers[0].baked, "Headline is unbaked");

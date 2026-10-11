@@ -137,7 +137,7 @@
         <span class="card-title">Rig</span>
       </div>
       <div class="grid3">
-        <div class="btn btn--tile" id="btnRefresh" title="Measure the text again and rebuild the expressions (after changing font, size, layout or Stable text)">
+        <div class="btn btn--tile" id="btnRefresh" title="Measure the text again and rebuild the expressions (after changing font, size, layout or Stable text). Shift+click: switch between Dynamic and Stable">
           <span class="tile-icon">&#8635;</span><span>Refresh</span>
         </div>
         <div class="btn btn--tile" id="btnBake" title="Turn the typing into keyframes you can move by hand. Shift+click: unbake">
@@ -147,7 +147,14 @@
           <span class="tile-icon">&#10005;</span><span>Remove</span>
         </div>
       </div>
-      <div class="note" id="bakeNote">Bake keyframes are coloured by what is typed. Shift+click Bake to unbake.</div>
+      <div class="confirm hidden" id="rebakeRow">
+        <div class="confirm-text" id="rebakeText">This rig is baked. Refresh bakes it again from its controls: keystrokes moved by hand go back.</div>
+        <div class="confirm-btns">
+          <div class="btn btn--small btn--amber" id="btnRebakeOk">Refresh and bake</div>
+          <div class="btn btn--small btn--ghost" id="btnRebakeCancel">Cancel</div>
+        </div>
+      </div>
+      <div class="note" id="bakeNote">Bake keyframes are coloured by what is typed. Shift+click: Refresh switches Dynamic and Stable, Bake unbakes.</div>
     </section>
 
     <!-- 5. Cursor -->

@@ -28,4 +28,26 @@ export async function run(s) {
   parts.push(await s.strip("09-part3", [{ time: T, label: "After Refresh" }], { width: 640 }));
   s.stack("09-before-after", parts, { gap: 6 });
   for (const p of parts) fs.rmSync(p, { force: true });
+
+  // Shift+click Refresh: the Dynamic rig becomes Stable.
+  await s.select(["Line"], T);
+  await s.info((i) => i.layers[0] && i.layers[0].rig === "dynamic" && !i.layers[0].needsRefresh, "a Dynamic rig");
+  await s.record("09-switch", async () => {
+    await s.pointTo("btnRefresh", { press: true });
+    const t = await s.click("btnRefresh", { shift: true });
+    if (!/^Switched Line to Stable/.test(t)) throw new Error(`switch: ${t}`);
+    await s.info((i) => i.layers[0] && i.layers[0].rig === "stable", "the rig is Stable");
+    await wait(1200);
+  }, { clip: ["status", "cardRig"], toast: true, fps: 8 });
+  await s.hideToast();
+
+  // Refresh on a baked rig asks first.
+  const b = await s.click("btnBake");
+  if (!/^Baked Line/.test(b)) throw new Error(`bake: ${b}`);
+  await s.hideToast();
+  await s.info((i) => i.layers[0] && i.layers[0].baked, "the rig is baked");
+  await s.click("btnRefresh", { toast: false });
+  await wait(500);
+  await s.shot("09-rebake", { clip: "cardRig" });
+  await s.click("btnRebakeCancel", { toast: false });
 }

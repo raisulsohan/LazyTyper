@@ -287,35 +287,92 @@
       var mcur = LT.findCursor(ml);
       var mpath = mcur.property("ADBE Root Vectors Group").property("Cursor").property("ADBE Vectors Group")
         .property("ADBE Vector Shape - Group").property("ADBE Vector Shape");
-      function heightWhen(k) {
-        for (var f = 0; f < 360; f++) {
-          if (Math.round(mcs.valueAtTime(f * FD, false)) === k) {
-            var v = mpath.valueAtTime(f * FD, false).vertices;
-            var lo = 1e9, hi = -1e9;
-            for (var q = 0; q < v.length; q++) {
-              lo = Math.min(lo, v[q][1]);
-              hi = Math.max(hi, v[q][1]);
-            }
-            return hi - lo;
-          }
-        }
+      var mfill = mcur.property("ADBE Root Vectors Group").property("Cursor").property("ADBE Vectors Group")
+        .property("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color");
+      /* The first frame k characters show. */
+      function frameWhen(k) {
+        for (var f = 0; f < 360; f++) if (Math.round(mcs.valueAtTime(f * FD, false)) === k) return f;
         return -1;
+      }
+      /* The cursor shape's box when k characters show: [left, top, width, height]. */
+      function boxWhen(k) {
+        var f = frameWhen(k);
+        if (f < 0) return [-1, -1, -1, -1];
+        var v = mpath.valueAtTime(f * FD, false).vertices;
+        var x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+        for (var q = 0; q < v.length; q++) {
+          x0 = Math.min(x0, v[q][0]);
+          x1 = Math.max(x1, v[q][0]);
+          y0 = Math.min(y0, v[q][1]);
+          y1 = Math.max(y1, v[q][1]);
+        }
+        return [x0, y0, x1 - x0, y1 - y0];
+      }
+      function heightWhen(k) {
+        return boxWhen(k)[3];
+      }
+      function colorWhen(k) {
+        var c = mfill.valueAtTime(frameWhen(k) * FD, false);
+        return Math.round(c[0] * 100) / 100 + "," + Math.round(c[1] * 100) / 100 + "," + Math.round(c[2] * 100) / 100;
+      }
+      function setCursor(n, v) {
+        LT.control(LT.findCursor(comp.layer("mixed")), n).setValue(v);
       }
       var hSmall = heightWhen(5);
       var hBig = heightWhen(9);
       var hBack = heightWhen(15);
       check(name + ": cursor grows beside the big word", hSmall > 0 && hBig > hSmall * 1.8 && Math.abs(hBack - hSmall) < 1,
         hSmall + " -> " + hBig + " -> " + hBack);
+      // The Vertical preset keeps its width beside the big word; Underscore grows.
+      check(name + ": a vertical bar keeps its width", Math.abs(boxWhen(9)[2] - boxWhen(5)[2]) < 0.01, boxWhen(5)[2] + " " + boxWhen(9)[2]);
+      call("applyValues", { kind: "cursor", values: fx.presets.underscore });
+      check(name + ": an underscore grows wider", boxWhen(9)[2] > boxWhen(5)[2] * 1.8, boxWhen(5)[2] + " " + boxWhen(9)[2]);
+      call("applyValues", { kind: "cursor", values: args.cursorValues });
+      // Size From: after "Small " (6 characters) the next character is the big B.
+      // After "Small BI" the G comes next (big); after "Small BIG" the space (small).
+      setCursor("Size From", 2);
+      check(name + ": size from the character after", heightWhen(6) > hSmall * 1.8 && Math.abs(heightWhen(8) - hBig) < 1 &&
+        Math.abs(heightWhen(9) - hSmall) < 1, heightWhen(6) + " " + heightWhen(8) + " " + heightWhen(9));
+      setCursor("Size From", 1);
+      check(name + ": size from the character before", Math.abs(heightWhen(6) - hSmall) < 1, heightWhen(6));
+      // Offsets in % of the font size grow beside the big word; in pixels they do not.
+      setCursor("Offset Unit", 2);
+      setCursor("Y Offset", 10);
+      var pctSmall = boxWhen(5)[1], pctBig = boxWhen(9)[1];
+      setCursor("Offset Unit", 1);
+      var pxSmall = boxWhen(5)[1], pxBig = boxWhen(9)[1];
+      setCursor("Y Offset", 0);
+      var nSmall = boxWhen(5)[1], nBig = boxWhen(9)[1];
+      check(name + ": Y Offset in % of the font size", Math.abs(pctSmall - nSmall - 6.4) < 0.05 && Math.abs(pctBig - nBig - 12.8) < 0.05,
+        (pctSmall - nSmall) + " " + (pctBig - nBig));
+      check(name + ": Y Offset in pixels", Math.abs(pxSmall - nSmall - 10) < 0.05 && Math.abs(pxBig - nBig - 10) < 0.05, (pxSmall - nSmall) + " " + (pxBig - nBig));
+      // Show Cursor.
+      var mop = mcur.property("ADBE Transform Group").property("ADBE Opacity");
+      setCursor("Show Cursor", 0);
+      var hiddenOp = mop.valueAtTime(4, false);
+      setCursor("Show Cursor", 1);
+      check(name + ": Show Cursor off hides it", hiddenOp === 0 && mop.valueAtTime(0.2, false) === 100, hiddenOp);
       function asks() {
         select(comp, comp.layer("mixed"));
         var inf = call("selectionInfo", { detail: true });
         return inf.layers && inf.layers[0] ? inf.layers[0].needsRefresh : "no layer";
       }
       check(name + ": no Refresh asked after create", asks() === false, asks());
+      // The cursor takes the text's colour (white); a colour change asks for a Refresh while it does.
+      check(name + ": cursor in the text's colour", colorWhen(3) === "1,1,1", colorWhen(3));
       md = mst.value;
       md.characterRange(0, 5).fillColor = [1, 0.5, 0];
       mst.setValue(md);
-      check(name + ": a colour change asks for no Refresh", asks() === false, asks());
+      check(name + ": a colour change asks for a Refresh (Use Text Color)", asks() === true, asks());
+      setCursor("Use Text Color", 0);
+      check(name + ": not with Use Text Color off", asks() === false, asks());
+      setCursor("Use Text Color", 1);
+      select(comp, comp.layer("mixed"));
+      call("refreshRig", {});
+      mcs = LT.control(comp.layer("mixed"), "Characters Shown");
+      check(name + ": after Refresh the cursor takes the new colour", colorWhen(3) === "1,0.5,0" && colorWhen(9) === "1,1,1",
+        colorWhen(3) + " / " + colorWhen(9));
+      check(name + ": colour changes then ask nothing", asks() === false, asks());
       md = mst.value;
       md.characterRange(10, 15).fontSize = 90;
       mst.setValue(md);
@@ -424,6 +481,375 @@
       check(name + " (Dynamic): after Unbake, the same keystrokes", u.ok && !bad.length, u.msg || bad.join("; "));
       order = controlOrder(dl);
       check(name + " (Dynamic): Bake added the newer controls in their places", order.ok, order.got);
+    })();
+    save();
+
+    /* Calls another host (its LT object: a 1.2.0 host) with its own rig arguments. */
+    function callWith(host, base, name, extra) {
+      var a = {};
+      for (var k in base) if (base.hasOwnProperty(k)) a[k] = base[k];
+      for (var e in extra) if (extra.hasOwnProperty(e)) a[e] = extra[e];
+      return eval("(" + host.call(name, host.stringify(a)) + ")");
+    }
+
+    /*
+     * Loads a host file and returns its LT without disturbing this one. $.evalFile runs a file in
+     * the scope of the function that calls it (like eval), so the inner function gets its own LT; and
+     * in case it lands in the global scope, the current LT and LT_call are put back there.
+     */
+    function loadHost(path) {
+      var keepLT = LT;
+      var keepCall = LT_call;
+      var other = (function () {
+        $.evalFile(new File(path));
+        return LT;
+      })();
+      try {
+        if ($.global.LT === other) {
+          $.global.LT = keepLT;
+          $.global.LT_call = keepCall;
+        }
+      } catch (eG) {}
+      return other;
+    }
+
+    function cursorParts(cur) {
+      var grp = cur.property("ADBE Root Vectors Group").property("Cursor").property("ADBE Vectors Group");
+      return {
+        pos: cur.property("ADBE Transform Group").property("ADBE Position"),
+        op: cur.property("ADBE Transform Group").property("ADBE Opacity"),
+        path: grp.property("ADBE Vector Shape - Group").property("ADBE Vector Shape"),
+        fill: grp.property("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color")
+      };
+    }
+
+    /*
+     * What a rig shows over its first 4 s, frame by frame: characters shown, and its cursor's box in
+     * the text layer's space (position + the shape's bounds; a Dynamic cursor's parent, the guide,
+     * shares that space), colour and opacity, rounded.
+     */
+    function snapshot(layer) {
+      var cs = LT.control(layer, "Characters Shown");
+      var cur = LT.findCursor(layer);
+      var P = cur ? cursorParts(cur) : null;
+      var out = [];
+      for (var f = 0; f <= 120; f += 2) {
+        var t = f * FD;
+        var row = [Math.round(cs.valueAtTime(t, false))];
+        if (P) {
+          var p = P.pos.valueAtTime(t, false);
+          var v = P.path.valueAtTime(t, false).vertices;
+          var x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+          for (var q = 0; q < v.length; q++) {
+            x0 = Math.min(x0, v[q][0]);
+            x1 = Math.max(x1, v[q][0]);
+            y0 = Math.min(y0, v[q][1]);
+            y1 = Math.max(y1, v[q][1]);
+          }
+          var c = P.fill.valueAtTime(t, false);
+          row.push(Math.round((p[0] + x0) * 10) / 10, Math.round((p[1] + y0) * 10) / 10, Math.round((x1 - x0) * 10) / 10,
+            Math.round((y1 - y0) * 10) / 10, Math.round(c[0] * 100), Math.round(c[1] * 100), Math.round(c[2] * 100),
+            Math.round(P.op.valueAtTime(t, false)));
+        }
+        out.push(row.join(","));
+      }
+      return out;
+    }
+
+    function firstDiff(a, b) {
+      for (var i = 0; i < Math.max(a.length, b.length); i++) if (a[i] !== b[i]) return "frame " + i * 2 + ": " + a[i] + " | " + b[i];
+      return "";
+    }
+
+    function hasEffect(layer, n) {
+      return !!layer.property("ADBE Effect Parade").property(n);
+    }
+
+    // Real 1.2.0 rigs (made by 1.2.0's host with 1.2.0's controls and expressions) type, sit and look
+    // exactly as before after this version's Refresh; a baked one is baked again to the same keys.
+    (function () {
+      var V = fx.v12;
+      var name = tag + "real 1.2.0 rig";
+      var made = [];
+      var OLD = loadHost(V.host);
+      check(name + ": 1.2.0 host loaded", OLD && OLD.version === "1.2.0" && OLD !== LT, OLD ? OLD.version : "none");
+      (function () {
+        var specs = [
+          { id: "v12-dynamic", type: "dynamic", text: "Made with 1.2.0, typing on." },
+          { id: "v12-stable", type: "stable", text: "Small BIG small", big: true },
+          { id: "v12-baked", type: "dynamic", text: "Baked in 1.2.0.", bake: true }
+        ];
+        for (var s = 0; s < specs.length; s++) {
+          var sp = specs[s];
+          var l = makeText(comp, { id: sp.id, text: sp.text, box: null, just: "left" });
+          l.property("ADBE Transform Group").property("ADBE Position").setValue([200, 300 + 120 * s]);
+          if (sp.big) {
+            var st = LT.sourceText(l);
+            var d = st.value;
+            d.characterRange(6, 9).fontSize = 128;
+            st.setValue(d);
+          }
+          select(comp, l);
+          comp.time = 0;
+          var r = callWith(OLD, V.args, "createRig", { type: sp.type, cursor: true });
+          l = comp.layer(sp.id);
+          var cur = OLD.findCursor(l);
+          check(name + " " + sp.id + ": made by 1.2.0", r.ok && r.made.length === 1 && cur && OLD.control(cur, "Text Layer"),
+            r.msg || LT.stringify(r));
+          if (!cur) continue;
+          OLD.control(cur, "X Offset").setValue(6);
+          OLD.control(cur, "Y Offset").setValue(-4);
+          if (s === 0) OLD.control(cur, "Cursor Color").setValue([1, 0.5, 0.2, 1]);
+          if (sp.bake) {
+            select(comp, l);
+            callWith(OLD, V.args, "bake", {});
+          }
+          made.push(sp);
+        }
+      })();
+      for (var m = 0; m < made.length; m++) {
+        var id = made[m].id;
+        var layer = comp.layer(id);
+        var before = snapshot(layer);
+        var keysBefore = LT.control(layer, "Characters Shown").numKeys;
+        select(comp, layer);
+        var rf = call("refreshRig", { rebake: !!made[m].bake });
+        layer = comp.layer(id);
+        check(name + " " + id + ": refresh", rf.ok && rf.done.length === 1 && !rf.problems.length, rf.msg || LT.stringify(rf));
+        var after = snapshot(layer);
+        check(name + " " + id + ": types, sits and looks the same", !firstDiff(before, after), firstDiff(before, after));
+        var cur2 = LT.findCursor(layer);
+        check(name + " " + id + ": the link controls are gone", cur2 && !hasEffect(cur2, "Text Layer") && !hasEffect(cur2, "Guide Layer"), "");
+        check(name + " " + id + ": newer cursor controls keep it as it was", cur2 && LT.control(cur2, "Use Text Color").value === 0 &&
+          LT.control(cur2, "Offset Unit").value === 1 && LT.control(cur2, "Show Cursor").value === 1 && LT.control(cur2, "X Offset").value === 6,
+          cur2 ? LT.control(cur2, "Use Text Color").value + " " + LT.control(cur2, "Offset Unit").value : "no cursor");
+        if (made[m].type === "dynamic") {
+          var g = LT.findGuide(layer);
+          check(name + " " + id + ": the cursor sits under the guide", cur2 && g && cur2.parent && cur2.parent.index === g.index, "");
+        }
+        if (made[m].bake) {
+          var cs = LT.control(layer, "Characters Shown");
+          check(name + " " + id + ": baked again to the same keys", rf.rebaked.length === 1 && cs.numKeys === keysBefore && cs.expression === "",
+            cs.numKeys + " vs " + keysBefore);
+        }
+        select(comp, layer);
+        var inf = call("selectionInfo", { detail: true }).layers[0];
+        check(name + " " + id + ": no Refresh asked after it", inf.cursor === true && inf.needsRefresh === false, LT.stringify(inf));
+      }
+    })();
+    save();
+
+    // Shift+click Refresh: Dynamic to Stable and back, every typing and cursor value kept; a baked rig
+    // is refreshed only with rebake, and baked again from its controls.
+    (function () {
+      var name = tag + "switch type";
+      var l = makeText(comp, { id: "switch", text: "Switch me, PLEASE. Now 2026!", box: null, just: "left" });
+      l.property("ADBE Transform Group").property("ADBE Position").setValue([200, 760]);
+      select(comp, l);
+      comp.time = 0;
+      call("createRig", { type: "dynamic", cursor: true });
+      l = comp.layer("switch");
+      LT.control(l, "Frames Per Character").setValue(2.5);
+      LT.control(l, "Slow: Capitals").setValue(77);
+      var cur = LT.findCursor(l);
+      var cvals = { "Width": 30, "Blink": 0, "Size From": 2, "Offset Unit": 1, "X Offset": 5, "Roundness": 40 };
+      for (var k in cvals) if (cvals.hasOwnProperty(k)) LT.control(cur, k).setValue(cvals[k]);
+      function typed(layer) {
+        var cs = LT.control(layer, "Characters Shown");
+        var o = [];
+        for (var f = 0; f <= 150; f++) o.push(Math.round(cs.valueAtTime(f * FD, false)));
+        return o.join(",");
+      }
+      function kept(layer) {
+        var c = LT.findCursor(layer);
+        if (!c) return "no cursor";
+        var bad = [];
+        for (var n in cvals) if (cvals.hasOwnProperty(n) && LT.control(c, n).value !== cvals[n]) bad.push(n + " " + LT.control(c, n).value);
+        if (LT.control(layer, "Frames Per Character").value !== 2.5) bad.push("Frames Per Character");
+        if (LT.control(layer, "Slow: Capitals").value !== 77) bad.push("Slow: Capitals");
+        return bad.join(", ");
+      }
+      /* The cursor's x after the whole text against the text's right edge (a probe without the rig). */
+      function endGap(layer) {
+        var c = LT.findCursor(layer);
+        var x = c.property("ADBE Transform Group").property("ADBE Position").valueAtTime(9.5, false)[0];
+        var probe = layer.duplicate();
+        var pfx = probe.property("ADBE Effect Parade");
+        while (pfx.numProperties) pfx.property(1).remove();
+        LT.sourceText(probe).expression = "";
+        var an = probe.property("ADBE Text Properties").property("ADBE Text Animators");
+        while (an.numProperties) an.property(1).remove();
+        var r = probe.sourceRectAtTime(9.5, false);
+        probe.remove();
+        return Math.round(x - (r.left + r.width));
+      }
+      var t0 = typed(l);
+      select(comp, l);
+      var r1 = call("refreshRig", { convert: true });
+      l = comp.layer("switch");
+      var c1 = LT.findCursor(l);
+      check(name + ": Dynamic to Stable", r1.ok && r1.types[0] === "stable" && call("selectionInfo", {}).layers[0].rig === "stable" &&
+        !LT.findGuide(l) && c1 && c1.parent.index === l.index, r1.msg || LT.stringify(r1));
+      check(name + ": Stable keeps the typing", typed(l) === t0, "");
+      check(name + ": Stable keeps every value", kept(l) === "", kept(l));
+      check(name + ": Stable cursor after the text", Math.abs(endGap(l)) < 14, endGap(l));
+      check(name + ": Stable has no expression problems", !r1.problems.length, r1.problems.join(" | "));
+      select(comp, l);
+      var r2 = call("refreshRig", { convert: true });
+      l = comp.layer("switch");
+      var c2 = LT.findCursor(l);
+      var g2 = LT.findGuide(l);
+      check(name + ": Stable to Dynamic", r2.ok && r2.types[0] === "dynamic" && g2 && c2 && c2.parent.index === g2.index &&
+        !l.property("ADBE Text Properties").property("ADBE Text Animators").property("LazyTyper"), r2.msg || LT.stringify(r2));
+      check(name + ": Dynamic again keeps the typing and values", typed(l) === t0 && kept(l) === "", kept(l));
+      check(name + ": Dynamic cursor after the text", Math.abs(endGap(l)) < 14, endGap(l));
+      // Baked: Refresh without rebake leaves it alone; with it, keystrokes moved by hand go back.
+      select(comp, l);
+      call("bake", {});
+      l = comp.layer("switch");
+      var cs = LT.control(l, "Characters Shown");
+      var keys = cs.numKeys;
+      var keyVal = cs.keyValue(4);
+      cs.setValueAtKey(4, 0);
+      var r3 = call("refreshRig", {});
+      check(name + ": baked, Refresh without rebake is skipped", r3.ok && !r3.done.length && r3.skipped.length === 1 &&
+        LT.control(l, "Characters Shown").keyValue(4) === 0, LT.stringify(r3));
+      var r4 = call("refreshRig", { rebake: true });
+      cs = LT.control(comp.layer("switch"), "Characters Shown");
+      check(name + ": baked, Refresh bakes it again from its controls", r4.ok && r4.rebaked.length === 1 && cs.numKeys === keys &&
+        cs.keyValue(4) === keyVal && cs.expression === "", cs.numKeys + " " + cs.keyValue(4));
+      var r5 = call("refreshRig", { convert: true, rebake: true });
+      l = comp.layer("switch");
+      cs = LT.control(l, "Characters Shown");
+      check(name + ": baked, switching keeps it baked", r5.ok && r5.types[0] === "stable" && cs.numKeys === keys && cs.expression === "" &&
+        typed(l) === t0, cs.numKeys + " " + LT.stringify(r5));
+      call("refreshRig", { convert: true, rebake: true });
+      // A Stable rig with mixed styles warns that Dynamic shows one style.
+      var mixed = comp.layer("mixed");
+      select(comp, mixed);
+      var r6 = call("refreshRig", { convert: true });
+      check(name + ": mixed styles to Dynamic says it shows one style", r6.ok && /first font size/.test(r6.problems.join(" ")), LT.stringify(r6));
+      select(comp, comp.layer("mixed"));
+      call("refreshRig", { convert: true });
+    })();
+    save();
+
+    // A whole rig (text, cursor, guide) duplicated, or copied and pasted into another comp, is a rig
+    // of its own: its cursor follows the copy, and the original is left as it was.
+    (function () {
+      var name = tag + "copied rig";
+      function cmd(n, id) {
+        var c = 0;
+        try {
+          c = app.findMenuCommandId(n);
+        } catch (e) {}
+        app.executeCommand(c > 0 ? c : id);
+      }
+      function rigLayers(layer) {
+        var out = [layer];
+        var cur = LT.findCursor(layer);
+        var g = LT.findGuide(layer);
+        if (cur) out.push(cur);
+        if (g) out.push(g);
+        return out;
+      }
+      function selectAll(c, list) {
+        for (var i = 1; i <= c.numLayers; i++) c.layer(i).selected = false;
+        for (var j = 0; j < list.length; j++) list[j].selected = true;
+      }
+      function textOfSelection(c) {
+        var sel = c.selectedLayers;
+        for (var i = 0; i < sel.length; i++) if (sel[i] instanceof TextLayer && sel[i].comment !== "LazyTyper guide") return sel[i];
+        return null;
+      }
+      function cursorX(layer, t) {
+        return LT.findCursor(layer).property("ADBE Transform Group").property("ADBE Position").valueAtTime(t, false)[0];
+      }
+      var dyn = makeText(comp, { id: "copy-dyn", text: "Copy me please", box: null, just: "left" });
+      dyn.property("ADBE Transform Group").property("ADBE Position").setValue([200, 900]);
+      select(comp, dyn);
+      comp.time = 0;
+      call("createRig", { type: "dynamic", cursor: true });
+      var stb = makeText(comp, { id: "copy-stb", text: "Stable copy", box: null, just: "left" });
+      stb.property("ADBE Transform Group").property("ADBE Position").setValue([200, 1000]);
+      select(comp, stb);
+      call("createRig", { type: "stable", cursor: true });
+      dyn = comp.layer("copy-dyn");
+      stb = comp.layer("copy-stb");
+      var dynX = cursorX(dyn, 5);
+      var dynPos = LT.findCursor(dyn).property("ADBE Transform Group").property("ADBE Position").expression;
+
+      // Edit > Duplicate, the Dynamic rig.
+      comp.openInViewer();
+      selectAll(comp, rigLayers(dyn));
+      cmd("Duplicate", 2080);
+      var copy = textOfSelection(comp);
+      check(name + ": Duplicate made a copy", copy && copy.index !== comp.layer("copy-dyn").index, copy ? copy.name : "none");
+      if (copy) {
+        var cst = LT.sourceText(copy);
+        var cd = cst.value;
+        cd.text = "A longer line for the copy";
+        cst.setValue(cd);
+        copy.property("ADBE Transform Group").property("ADBE Position").setValue([1000, 900]);
+        var ccur = LT.findCursor(copy);
+        var cg = LT.findGuide(copy);
+        check(name + ": the copy has its own cursor and guide", ccur && cg && ccur.parent.index === cg.index && cg.parent.index === copy.index &&
+          ccur.index !== LT.findCursor(comp.layer("copy-dyn")).index, "");
+        check(name + ": the copy's cursor follows the copy's text", cursorX(copy, 6) > cursorX(comp.layer("copy-dyn"), 6) + 100,
+          Math.round(cursorX(copy, 6)) + " vs " + Math.round(cursorX(comp.layer("copy-dyn"), 6)));
+        check(name + ": the original is left as it was", Math.abs(cursorX(comp.layer("copy-dyn"), 5) - dynX) < 0.01 &&
+          LT.findCursor(comp.layer("copy-dyn")).property("ADBE Transform Group").property("ADBE Position").expression === dynPos, "");
+        select(comp, copy);
+        var ci = call("selectionInfo", { detail: true }).layers[0];
+        check(name + ": the panel sees the copy's rig", ci.rig === "dynamic" && ci.cursor === true && ci.needsRefresh === false &&
+          ci.text === "A longer line for the copy", LT.stringify(ci));
+      }
+
+      // Edit > Duplicate, the Stable rig (text and cursor).
+      selectAll(comp, rigLayers(stb));
+      cmd("Duplicate", 2080);
+      var scopy = textOfSelection(comp);
+      if (scopy) {
+        var scur = LT.findCursor(scopy);
+        check(name + ": Stable copy has its own cursor", scur && scur.parent.index === scopy.index &&
+          scur.index !== LT.findCursor(comp.layer("copy-stb")).index, "");
+        select(comp, scopy);
+        var rr = call("refreshRig", {});
+        check(name + ": refreshing the Stable copy leaves the original's cursor alone", rr.ok && LT.findCursor(comp.layer("copy-stb")).parent.index ===
+          comp.layer("copy-stb").index, LT.stringify(rr));
+      } else check(name + ": Stable Duplicate made a copy", false, "none");
+
+      // Copy both rigs, paste them into a new comp.
+      var dest = app.project.items.addComp("LazyTyper paste", 1920, 1080, 1, 12, 30);
+      comp.openInViewer();
+      selectAll(comp, rigLayers(comp.layer("copy-dyn")).concat(rigLayers(comp.layer("copy-stb"))));
+      cmd("Copy", 19);
+      dest.openInViewer();
+      cmd("Paste", 20);
+      check(name + ": pasted five layers", dest.numLayers === 5, dest.numLayers);
+      var pd = null, ps = null;
+      for (var i = 1; i <= dest.numLayers; i++) {
+        var pl = dest.layer(i);
+        if (pl.name === "copy-dyn") pd = pl;
+        if (pl.name === "copy-stb") ps = pl;
+      }
+      var pairs = [[pd, comp.layer("copy-dyn")], [ps, comp.layer("copy-stb")]];
+      for (var p = 0; p < pairs.length; p++) {
+        var a = pairs[p][0], o = pairs[p][1];
+        if (!a) {
+          check(name + ": pasted " + o.name, false, "missing");
+          continue;
+        }
+        var acur = LT.findCursor(a);
+        check(name + ": pasted " + o.name + " has its cursor", acur && acur.containingComp.id === dest.id, "");
+        var same = acur && Math.abs(cursorX(a, 2) - cursorX(o, 2)) < 0.01 && Math.abs(cursorX(a, 5) - cursorX(o, 5)) < 0.01 &&
+          Math.round(LT.control(a, "Characters Shown").valueAtTime(1, false)) === Math.round(LT.control(o, "Characters Shown").valueAtTime(1, false));
+        check(name + ": pasted " + o.name + " types and its cursor follows", same, acur ? Math.round(cursorX(a, 2)) + " vs " + Math.round(cursorX(o, 2)) : "");
+        select(dest, a);
+        var pi = call("selectionInfo", { detail: true }).layers[0];
+        check(name + ": the panel sees pasted " + o.name, pi && pi.cursor === true && pi.needsRefresh === false, LT.stringify(pi));
+      }
+      comp.openInViewer();
     })();
     save();
 

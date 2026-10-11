@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-Rigs and presets made with 1.2.0 keep typing exactly as before: the new controls start at
-values that change nothing, and Refresh, Bake and Unbake add them to an older rig.
+Rigs and presets made with 1.2.0 keep typing and looking exactly as before: the new controls
+start at values that change nothing, and Refresh, Bake and Unbake add them to an older rig.
 
 - **Presets type as fast at any frame rate.** A typing preset keeps the frame rate it was made
   at (the built-in ones 30 fps; a saved one, its comp's) and converts *Frames Per Character* and
@@ -29,6 +29,32 @@ values that change nothing, and Refresh, Bake and Unbake add them to an older ri
   pairs, Hunt & Peck speeds up on double letters; their base speeds moved a little (Very Fast
   2.05 frames per character, Average 2.9) so each types as many characters a second as before.
 - Refresh puts controls it adds in their place in Effect Controls, not at the end.
+
+The cursor:
+
+- **Size From** (Character Before / Character After, can be keyframed): with mixed font sizes
+  in a Stable rig, the cursor takes the size of the character it follows, as before, or of the
+  one it comes before. **Height Follows Size** and **Width Follows Size** choose what grows: the
+  Vertical preset now keeps its width beside a big word (only its height grows), Underscore and
+  Box grow both ways. A dimension that does not follow keeps the text's main size.
+- **Show Cursor**: switch the cursor off and on (keyframe it), whatever its opacity and blink.
+- **Offset Unit**: X Offset and Y Offset in pixels, or in % of the font size so they grow with
+  the text (new rigs and the built-in presets). Cursors made earlier, and cursor presets saved
+  earlier, keep pixels.
+- **Use Text Color**: a new cursor takes the text's fill colour (white when it has none): a
+  Dynamic rig the first character's, a Stable rig the colour of the character it takes its size
+  from, so it turns red beside a red word. Turn it off to use Cursor Color. While it is on, the
+  panel asks for a Refresh when the text's colours change. Older cursors keep Cursor Color.
+- **Shift+click Refresh** switches the selected rigs between Dynamic and Stable, keeping every
+  typing and cursor value (a Stable rig with mixed sizes or colours shows its first style as a
+  Dynamic rig; switching back brings them back).
+- **Refresh on a baked rig** unbakes it, rebuilds it and bakes it again from its controls, so the
+  keys follow a changed text. The panel asks first: keystrokes moved by hand go back.
+- **Duplicating or pasting a whole rig** (text, cursor and guide, in the same comp or another)
+  gives a rig of its own: the cursor finds its text by parenting, which After Effects carries over
+  to the copies (a Dynamic cursor now sits under the guide). The cursor's Text Layer and Guide
+  Layer controls, which a copy kept pointing at the original, are gone; Refresh takes them off an
+  older rig, which until then keeps working as before.
 
 ## 1.2.0 - 2026-10-11
 

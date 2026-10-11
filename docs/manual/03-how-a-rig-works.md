@@ -36,8 +36,11 @@ twirled open.*
 | Layer | What it is |
 |---|---|
 | **Dynamic text**, **Stable text** | your text layers, with the rig's controls in Effect Controls |
-| **… Cursor** | a shape layer above its text, parented to it, with the cursor's controls. Its comment is *LazyTyper cursor*. |
-| **… Guide** (Dynamic only) | a copy of the text below it: a guide layer (never rendered), switched off and shy. Its comment is *LazyTyper guide*. |
+| **… Cursor** | a shape layer above its text, with the cursor's controls, parented to the text (Stable) or to the guide (Dynamic). Its comment is *LazyTyper cursor*. |
+| **… Guide** (Dynamic only) | a copy of the text below it, parented to it: a guide layer (never rendered), switched off and shy. Its comment is *LazyTyper guide*. |
+
+The parenting is how the cursor finds its text, so a whole rig can be duplicated or pasted into
+another comp and the copy works on its own (chapter 22).
 
 The guide shows what the text layer shows, but a text animator shrinks every character except the
 last one typed to nothing. After Effects measures the box of what is left, and that is where the
@@ -85,4 +88,4 @@ make, change or bake rigs.
 - [4. Creating a rig](04-create-rig.md)
 - [9. Refresh](09-refresh.md)
 - [21. Characters Shown](21-characters-shown.md)
-- [22. Text Layer and Guide Layer](22-cursor-links.md)
+- [22. How the cursor finds its rig](22-cursor-links.md)

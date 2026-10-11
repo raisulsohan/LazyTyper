@@ -184,11 +184,29 @@ var LT = (function () {
     }
   }
 
+  /*
+   * The text layer a cursor belongs to, by parenting: a Stable cursor's parent is its text, a
+   * Dynamic cursor's parent is the guide, whose parent is the text. After Effects keeps parenting
+   * between layers duplicated or pasted together, so a copied rig's cursor belongs to the copy.
+   * A cursor made before 1.3.0 and later unparented by hand is found by its Text Layer control.
+   */
+  function cursorOwner(cursor) {
+    var p = cursor.parent;
+    if (p && p.comment === GUIDE_TAG) p = p.parent;
+    if (p && isText(p)) return p;
+    var idx = layerControlTarget(cursor, "Text Layer");
+    var comp = cursor.containingComp;
+    if (idx > 0 && idx <= comp.numLayers && idx !== cursor.index && isText(comp.layer(idx))) return comp.layer(idx);
+    return null;
+  }
+
   function findCursor(layer) {
     var comp = layer.containingComp;
     for (var i = 1; i <= comp.numLayers; i++) {
       var l = comp.layer(i);
-      if (l.comment === CURSOR_TAG && layerControlTarget(l, "Text Layer") === layer.index) return l;
+      if (l.comment !== CURSOR_TAG) continue;
+      var o = cursorOwner(l);
+      if (o && o.index === layer.index) return l;
     }
     return null;
   }
@@ -205,11 +223,7 @@ var LT = (function () {
   /* The text layer a selected layer belongs to: itself, or the one its cursor or guide follows. */
   function owner(layer) {
     if (isText(layer) && layer.comment !== GUIDE_TAG) return layer;
-    var comp = layer.containingComp;
-    if (layer.comment === CURSOR_TAG) {
-      var idx = layerControlTarget(layer, "Text Layer");
-      if (idx > 0 && idx <= comp.numLayers) return comp.layer(idx);
-    }
+    if (layer.comment === CURSOR_TAG) return cursorOwner(layer);
     if (layer.comment === GUIDE_TAG && layer.parent) return layer.parent;
     return null;
   }
@@ -269,28 +283,55 @@ var LT = (function () {
   }
 
   /*
-   * Adds every missing control, each right after the control before it in defs (so a Refresh
-   * puts a newer control where a new rig has it); returns how many it added. Moving an effect
-   * invalidates the others' objects, so effects are looked up by name again after each one.
+   * Adds every missing control, each right after the control before it in defs, or for the first,
+   * before the one after it (so a Refresh puts a newer control where a new rig has it); returns
+   * how many it added. older: the layer was made by an earlier version, so a control added now
+   * gets its oldValue (rig.js), which keeps it looking as it did. Moving an effect invalidates the
+   * others' objects, so effects are looked up by name again after each one.
    */
-  function ensureControls(layer, defs, values, skip) {
+  function ensureControls(layer, defs, values, older) {
     var added = 0;
     var prev = null;
     for (var i = 0; i < defs.length; i++) {
       var d = defs[i];
-      if (skip && skip(d)) continue;
       if (!effectNamed(layer, d.name)) {
-        addControl(layer, d, values && values[d.name] !== undefined ? values[d.name] : undefined);
+        var v = values && values[d.name] !== undefined ? values[d.name] : undefined;
+        if (v === undefined && older && d.oldValue !== undefined) v = d.oldValue;
+        addControl(layer, d, v);
         added++;
         var before = prev ? effectNamed(layer, prev) : null;
         var fx = effectNamed(layer, d.name);
         if (before && fx.propertyIndex !== before.propertyIndex + 1) {
           fx.moveTo(before.propertyIndex < fx.propertyIndex ? before.propertyIndex + 1 : before.propertyIndex);
+        } else if (!before) {
+          var after = null;
+          for (var j = i + 1; j < defs.length && !after; j++) after = effectNamed(layer, defs[j].name);
+          if (after && after.propertyIndex < fx.propertyIndex) fx.moveTo(after.propertyIndex);
         }
       }
       prev = d.name;
     }
     return added;
+  }
+
+  /* The Layer Controls cursors had before 1.3.0 (they now find their text by parenting). */
+  var LINK_CONTROLS = ["Text Layer", "Guide Layer"];
+
+  function removeLinks(cursor) {
+    for (var i = 0; i < LINK_CONTROLS.length; i++) {
+      var fx = effectNamed(cursor, LINK_CONTROLS[i]);
+      if (fx) fx.remove();
+    }
+  }
+
+  /*
+   * Puts a cursor under its parent (the text, or a Dynamic rig's guide) without moving it: the
+   * guide's space is the text's, and setParentWithJump keeps the cursor's own values.
+   */
+  function relink(cursor, parent) {
+    if (cursor.parent && cursor.parent.index === parent.index) return;
+    if (typeof cursor.setParentWithJump === "function") cursor.setParentWithJump(parent);
+    else cursor.parent = parent;
   }
 
   /*
@@ -811,18 +852,148 @@ var LT = (function () {
   }
 
   /*
-   * The cursor's size after k characters, for k = 0..text.length: the size of the last
-   * character typed, or at the start of a line, of the next one.
+   * The character the cursor takes its size from after k characters. Before: the last character
+   * typed, or at the start of a line, the next one. After: the next character, or at the end of a
+   * line or of the text, the last one typed. -1 for an empty text.
    */
-  function cursorSizes(text, sizes, base) {
+  function adjacent(text, k, after) {
     var n = text.length;
-    var out = [];
-    for (var k = 0; k <= n; k++) {
-      var at = k - 1;
+    var at;
+    if (after) {
+      at = k;
+      if (at >= n || isBreak(text.charAt(at))) at = k - 1;
+      if (at < 0) at = k < n ? k : -1;
+    } else {
+      at = k - 1;
       if (at < 0 || isBreak(text.charAt(at))) at = k < n ? k : k - 1;
-      out.push(at >= 0 && at < n ? sizes[at] : base);
+    }
+    return at >= 0 && at < n ? at : -1;
+  }
+
+  /* One value per count of characters shown (k = 0..text.length): each[adjacent], or base. */
+  function perCount(text, each, base, after) {
+    var out = [];
+    for (var k = 0; k <= text.length; k++) {
+      var at = adjacent(text, k, after);
+      out.push(at >= 0 ? each[at] : base);
     }
     return out;
+  }
+
+  /* The cursor's size after k characters, for k = 0..text.length (Size From: before or after). */
+  function cursorSizes(text, sizes, base, after) {
+    return perCount(text, sizes, base, !!after);
+  }
+
+  /*
+   * The size most of the text has (its spaces and line breaks left out; the first of equals wins):
+   * what a cursor dimension that does not follow the size keeps.
+   */
+  function mainSize(text, sizes, base) {
+    var count = {};
+    var best = base;
+    var bestN = 0;
+    for (var i = 0; i < text.length; i++) {
+      if (isBlank(text.charAt(i))) continue;
+      var key = "s" + Math.round(sizes[i] * 10);
+      count[key] = (count[key] || 0) + 1;
+      if (count[key] > bestN) {
+        bestN = count[key];
+        best = sizes[i];
+      }
+    }
+    return best;
+  }
+
+  var WHITE = [1, 1, 1];
+
+  /* The text's fill colour (its first style's), or white when it has none. */
+  function fillOf(doc) {
+    try {
+      if (doc.applyFill) return [doc.fillColor[0], doc.fillColor[1], doc.fillColor[2]];
+    } catch (e) {}
+    return WHITE;
+  }
+
+  /*
+   * The fill colour of every character, from the text's character styles (After Effects 24.3 and
+   * later; older versions give the first style's to all). A character without a fill gets white.
+   */
+  function charColors(doc) {
+    var n = String(doc.text).length;
+    var base = fillOf(doc);
+    var out = [];
+    var ranged = typeof doc.characterRange === "function";
+    for (var i = 0; i < n; i++) {
+      var c = base;
+      if (ranged) {
+        try {
+          var r = doc.characterRange(i, i + 1);
+          c = r.applyFill ? [r.fillColor[0], r.fillColor[1], r.fillColor[2]] : WHITE;
+        } catch (e) {}
+      }
+      out.push(c);
+    }
+    return out;
+  }
+
+  function fmt3(v) {
+    var r = Math.round(v * 1000) / 1000;
+    return isFinite(r) ? String(r) : "0";
+  }
+
+  function colorText(c) {
+    return "[" + fmt3(c[0]) + "," + fmt3(c[1]) + "," + fmt3(c[2]) + "]";
+  }
+
+  /* "[r,g,b]" when every entry is the same colour, "[[r,g,b],...]" otherwise. */
+  function colorsData(list, base) {
+    if (!list.length) return colorText(base);
+    var first = colorText(list[0]);
+    var parts = [first];
+    var same = true;
+    for (var i = 1; i < list.length; i++) {
+      var t = colorText(list[i]);
+      if (t !== first) same = false;
+      parts.push(t);
+    }
+    return same ? first : "[" + parts.join(",") + "]";
+  }
+
+  /*
+   * The colour table of a cursor (rig.js LT_COLORS): for a Stable rig, at every Source Text
+   * keyframe, the colour of the character before and after the cursor for each count of characters
+   * shown; for a Dynamic rig (one style), the first character's colour.
+   */
+  function colorsFor(layer, type) {
+    if (type === "dynamic") {
+      var dd = dynamicDoc(layer, Math.max(layer.inPoint, layer.outPoint - layer.containingComp.frameDuration));
+      var dc = String(dd.text).length ? charColors(dd)[0] : fillOf(dd);
+      return "[0," + colorText(dc) + "," + colorText(dc) + "]";
+    }
+    var st = sourceText(layer);
+    var times = textTimes(layer);
+    var out = [];
+    for (var i = 0; i < times.length; i++) {
+      var doc = st.valueAtTime(times[i], false);
+      var text = String(doc.text);
+      var each = charColors(doc);
+      var base = fillOf(doc);
+      out.push("[" + fmt(times[i]) + "," + colorsData(perCount(text, each, base, false), base) + "," +
+        colorsData(perCount(text, each, base, true), base) + "]");
+    }
+    return out.join(",");
+  }
+
+  /* The colour a new cursor's Cursor Color starts at: the text's first character's. */
+  function firstColor(layer, type) {
+    try {
+      var comp = layer.containingComp;
+      var doc = type === "dynamic" ? dynamicDoc(layer, comp.time) : sourceText(layer).valueAtTime(comp.time, false);
+      return String(doc.text).length ? charColors(doc)[0] : fillOf(doc);
+    } catch (e) {
+      return WHITE;
+    }
   }
 
   /* "size" when every entry is the same, "[s0,s1,...]" otherwise (one per character count). */
@@ -864,7 +1035,9 @@ var LT = (function () {
         var parts = [];
         for (var p = 0; p < pts.length; p++) parts.push(fmt(pts[p]));
         data.push("[" + fmt(t) + "," + fmt(doc.fontSize) + ",[" + parts.join(",") + "]]");
-        sizes.push("[" + fmt(t) + "," + sizesData(cursorSizes(text, each, doc.fontSize), doc.fontSize) + "]");
+        sizes.push("[" + fmt(t) + "," + fmt(mainSize(text, each, doc.fontSize)) + "," +
+          sizesData(cursorSizes(text, each, doc.fontSize, false), doc.fontSize) + "," +
+          sizesData(cursorSizes(text, each, doc.fontSize, true), doc.fontSize) + "]");
       }
     } finally {
       if (anim) anim.enabled = animOn;
@@ -934,10 +1107,23 @@ var LT = (function () {
     return e !== "" && e.indexOf("LT_unit") < 0;
   }
 
-  /* Dynamic rig: a hidden copy of the text layer whose bounds show where the cursor goes. */
+  /*
+   * Dynamic rig: a hidden copy of the text layer whose bounds show where the cursor goes. Making it
+   * again (Refresh) keeps the old one's children, the cursor, without moving them: they go under
+   * the text first (the same space) and then under the new guide.
+   */
   function makeGuide(layer, expr) {
     var old = findGuide(layer);
-    if (old) old.remove();
+    var kids = [];
+    if (old) {
+      var comp = layer.containingComp;
+      for (var i = 1; i <= comp.numLayers; i++) {
+        var l = comp.layer(i);
+        if (l.parent && l.parent.index === old.index) kids.push(l);
+      }
+      for (var k = 0; k < kids.length; k++) relink(kids[k], layer);
+      old.remove();
+    }
     var g = scratchCopy(layer);
     g.name = layer.name + " Guide";
     g.comment = GUIDE_TAG;
@@ -948,7 +1134,27 @@ var LT = (function () {
     g.guideLayer = true;
     g.enabled = false;
     g.shy = true;
+    for (var c = 0; c < kids.length; c++) relink(kids[c], g);
     return g;
+  }
+
+  /* Takes a Dynamic rig's guide away, keeping its cursor in place under the text. */
+  function dropGuide(layer) {
+    var g = findGuide(layer);
+    if (!g) return;
+    var comp = layer.containingComp;
+    var kids = [];
+    for (var i = 1; i <= comp.numLayers; i++) {
+      var l = comp.layer(i);
+      if (l.parent && l.parent.index === g.index) kids.push(l);
+    }
+    for (var k = 0; k < kids.length; k++) relink(kids[k], layer);
+    g.remove();
+  }
+
+  /* Where a cursor expression reaches its text layer (rig.js LT_TEXT). */
+  function withText(e, type) {
+    return e.split("/*LT_TEXT*/").join(type === "dynamic" ? "parent.parent" : "parent");
   }
 
   function cursorExpressions(cursor, layer, type, expr, m, stable) {
@@ -959,14 +1165,16 @@ var LT = (function () {
       .property("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color");
     var stamp = MEASURED + signature(layer, type) + "\n";
     if (type === "stable") {
-      tr.property("ADBE Position").expression = stamp + expr.stableCursorPosition.replace("/*LT_DATA*/", stable.data);
-      path.expression = expr.cursorPath.replace("/*LT_SIZES*/", stable.sizes);
+      tr.property("ADBE Position").expression = stamp + withText(expr.stableCursorPosition, type).replace("/*LT_DATA*/", stable.data);
+      path.expression = withText(expr.cursorPath, type).replace("/*LT_SIZES*/", stable.sizes);
     } else {
+      var s = fmt(m.size);
       tr.property("ADBE Position").expression = stamp + expr.dynamicCursorPosition.replace("/*LT_METRICS*/", metricsLine(m));
-      path.expression = expr.cursorPath.replace("/*LT_SIZES*/", "[0," + fmt(m.size) + "]");
+      path.expression = withText(expr.cursorPath, type).replace("/*LT_SIZES*/", "[0," + s + "," + s + "," + s + "]");
     }
-    fill.expression = expr.cursorColor;
-    tr.property("ADBE Opacity").expression = expr.cursorOpacity;
+    var colors = colorsFor(layer, type);
+    fill.expression = COLORED + hash(colors) + "\n" + withText(expr.cursorColor, type).replace("/*LT_COLORS*/", colors);
+    tr.property("ADBE Opacity").expression = withText(expr.cursorOpacity, type);
   }
 
   /*
@@ -1033,12 +1241,31 @@ var LT = (function () {
     return parts.join(",");
   }
 
-  /* True when the cursor was measured for a style or text the layer no longer has. */
+  /*
+   * The colours a cursor took from its text are fingerprinted at the top of its colour expression;
+   * they only matter while Use Text Color is on.
+   */
+  var COLORED = "// colors:";
+
+  function stamped(e, mark) {
+    return e.indexOf(mark) === 0 ? e.substring(mark.length, e.indexOf("\n")) : null;
+  }
+
+  /*
+   * True when the cursor was measured for a style or text the layer no longer has, or, taking the
+   * text's colours, for colours it no longer has.
+   */
   function needsRefresh(layer, type, cursor) {
     var e = cursor.property("ADBE Transform Group").property("ADBE Position").expression;
-    if (e.indexOf(MEASURED) !== 0) return false;
-    var stored = e.substring(MEASURED.length, e.indexOf("\n"));
-    return stored !== signature(layer, type);
+    var stored = stamped(e, MEASURED);
+    if (stored === null) return false;
+    if (stored !== signature(layer, type)) return true;
+    var fill = cursor.property("ADBE Root Vectors Group").property("Cursor").property("ADBE Vectors Group")
+      .property("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color");
+    var colors = stamped(fill.expression, COLORED);
+    var use = control(cursor, "Use Text Color");
+    if (colors === null || !use || use.valueAtTime(layer.containingComp.time, false) < 0.5) return false;
+    return colors !== hash(colorsFor(layer, type));
   }
 
   function makeCursor(layer, type, opts, guide) {
@@ -1058,19 +1285,13 @@ var LT = (function () {
     grp = root.property("Cursor");
     grp.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill");
     if (layer.threeDLayer) c.threeDLayer = true;
-    attach(c, layer);
-    var values = opts.cursorValues || {};
-    if (!values["Cursor Color"]) {
-      try {
-        var doc = sourceText(layer).valueAtTime(comp.time, true);
-        if (doc.applyFill) values["Cursor Color"] = doc.fillColor;
-      } catch (e) {}
-    }
-    ensureControls(c, opts.cursorControls, values, function (d) {
-      return d.dynamicOnly && type !== "dynamic";
-    });
-    control(c, "Text Layer").setValue(layer.index);
-    if (guide) control(c, "Guide Layer").setValue(guide.index);
+    /* The link to the rig: a Dynamic cursor sits under the guide, a Stable one under the text. */
+    attach(c, guide || layer);
+    var values = {};
+    var src = opts.cursorValues || {};
+    for (var k in src) if (src.hasOwnProperty(k)) values[k] = src[k];
+    if (!values["Cursor Color"]) values["Cursor Color"] = firstColor(layer, type);
+    ensureControls(c, opts.cursorControls, values);
     return c;
   }
 
@@ -1203,51 +1424,103 @@ var LT = (function () {
     return { ok: true, made: made, skipped: skipped, problems: problems };
   }
 
+  function isBaked(layer) {
+    var cs = control(layer, COUNT);
+    return !!(cs && cs.numKeys > 0 && cs.expression === "");
+  }
+
+  /* True when the text has more than one font size or fill colour (a Dynamic rig shows only the first). */
+  function mixedStyle(layer) {
+    var doc = sourceText(layer).valueAtTime(layer.containingComp.time, false);
+    var text = String(doc.text);
+    var sizes = charSizes(doc);
+    var colors = charColors(doc);
+    for (var i = 1; i < text.length; i++) {
+      if (Math.abs(sizes[i] - sizes[0]) > 0.05 || colorText(colors[i]) !== colorText(colors[0])) return true;
+    }
+    return false;
+  }
+
+  /*
+   * Measures the text again and writes the rig's expressions anew, as type ("dynamic" or "stable",
+   * the rig's own or the other one, to switch). Every control keeps its value; controls a newer
+   * version has are added. A baked rig is unbaked, rebuilt and baked again from its controls
+   * (keystrokes moved by hand go back), but only with a.rebake: the panel asks first.
+   * Returns "" or why the layer was skipped.
+   */
+  function rebuild(layer, from, to, a, notes) {
+    var comp = layer.containingComp;
+    var st = sourceText(layer);
+    if (to === "dynamic" && from === "stable" && st.expression !== "" && !isOurExpression(st.expression)) {
+      return layer.name + " has its own Source Text expression";
+    }
+    var baked = isBaked(layer);
+    if (baked && !a.rebake) return layer.name + " is baked: Refresh would bake it again";
+    if (to === "dynamic" && from === "stable" && mixedStyle(layer)) {
+      notes.push(layer.name + " shows its first font size and colour as a Dynamic rig (switch back to get them again)");
+    }
+    /* Found first: a Dynamic cursor is linked through the guide, which is made again below. */
+    var cur = findCursor(layer);
+    upgradeControls(layer, a.textControls);
+    var cs = control(layer, COUNT);
+    /* Source Text first, so it never reads Characters Shown while that reads Source Text. */
+    if (to === "dynamic") st.expression = a.expr.dynamicText;
+    else if (isOurExpression(st.expression)) st.expression = "";
+    if (baked) removeKeys(cs);
+    cs.expression = to === "stable" ? a.expr.stableCount : a.expr.dynamicCount;
+    var anim = animatorNamed(layer, ANIMATOR);
+    if (anim) anim.remove();
+    if (to === "stable") addTypingAnimator(layer, a.expr);
+    var m = measureMetrics(layer, comp.time);
+    var guide = null;
+    if (to === "dynamic") guide = makeGuide(layer, a.expr);
+    else dropGuide(layer);
+    if (cur) {
+      relink(cur, guide || layer);
+      removeLinks(cur);
+      ensureControls(cur, a.cursorControls, null, true);
+      cursorExpressions(cur, layer, to, a.expr, m, to === "stable" ? measureStable(layer, m) : null);
+    }
+    if (baked) bakeLayer(layer, to, a);
+    return "";
+  }
+
+  /*
+   * Refresh (a.convert: switch each selected rig to the other type). Returns the layers done,
+   * the type each one is now and which were baked again.
+   */
   function refreshRig(a) {
     var comp = activeComp();
     var list = targets(comp);
     var done = [];
+    var types = [];
+    var rebaked = [];
+    var skipped = [];
     var problems = [];
-    app.beginUndoGroup("LazyTyper: Refresh Rig");
+    var notes = [];
+    app.beginUndoGroup(a.convert ? "LazyTyper: Switch Rig Type" : "LazyTyper: Refresh Rig");
     try {
       for (var i = 0; i < list.length; i++) {
         var layer = list[i];
         var type = rigType(layer);
         if (!type) continue;
-        upgradeControls(layer, a.textControls);
-        var cs = control(layer, COUNT);
-        var baked = cs.numKeys > 0 && cs.expression === "";
-        var st = sourceText(layer);
-        if (type === "stable") {
-          if (!baked) cs.expression = a.expr.stableCount;
-          var anim = animatorNamed(layer, ANIMATOR);
-          if (anim) anim.remove();
-          addTypingAnimator(layer, a.expr);
-        } else {
-          if (!baked) cs.expression = a.expr.dynamicCount;
-          st.expression = baked ? a.expr.dynamicTextBaked : a.expr.dynamicText;
-        }
-        var guide = null;
-        var cur = findCursor(layer);
-        var m = measureMetrics(layer, comp.time);
-        if (type === "dynamic") guide = makeGuide(layer, a.expr);
-        if (cur) {
-          ensureControls(cur, a.cursorControls, null, function (d) {
-            return d.dynamicOnly && type !== "dynamic";
-          });
-          if (guide) control(cur, "Guide Layer").setValue(guide.index);
-          control(cur, "Text Layer").setValue(layer.index);
-          var stable = type === "stable" ? measureStable(layer, m) : null;
-          cursorExpressions(cur, layer, type, a.expr, m, stable);
+        var to = a.convert ? (type === "dynamic" ? "stable" : "dynamic") : type;
+        var baked = isBaked(layer);
+        var why = rebuild(layer, type, to, a, notes);
+        if (why) {
+          skipped.push(why);
+          continue;
         }
         checkExpressions(layer, problems);
         done.push(layer.name);
+        types.push(to);
+        if (baked) rebaked.push(layer.name);
       }
     } finally {
       app.endUndoGroup();
     }
-    if (!done.length) fail("Select a text layer with a LazyTyper rig.");
-    return { ok: true, done: done, problems: problems };
+    if (!done.length && !skipped.length) fail("Select a text layer with a LazyTyper rig.");
+    return { ok: true, done: done, types: types, rebaked: rebaked, skipped: skipped, problems: problems.concat(notes) };
   }
 
   /* Takes every LazyTyper part off a text layer: cursor, guide, expression, animator, controls. */
@@ -1306,67 +1579,74 @@ var LT = (function () {
         var layer = list[i];
         var type = rigType(layer);
         if (!type) continue;
-        var cs = control(layer, COUNT);
-        if (cs.numKeys > 0 && cs.expression === "") {
+        if (isBaked(layer)) {
           skipped.push(layer.name + " is already baked");
           continue;
         }
         upgradeControls(layer, a.textControls);
-        cs = control(layer, COUNT);
-        var st = sourceText(layer);
-        var keep = st.expression;
-        var log;
-        try {
-          st.expression = a.expr.recorder;
-          log = String(st.valueAtTime(layer.outPoint, false).text);
-          if (st.expressionError) fail(layer.name + ": " + st.expressionError);
-        } finally {
-          st.expression = keep;
-        }
-        var times = [];
-        var values = [];
-        var labels = [];
-        var prev = 0;
-        var items = log ? log.split(";") : [];
-        for (var k = 0; k < items.length; k++) {
-          var pair = items[k].split(":");
-          if (pair.length !== 2) continue;
-          var tk = parseFloat(pair[0]);
-          var v = parseInt(pair[1], 10);
-          if (isNaN(tk) || isNaN(v)) continue;
-          var label;
-          if (v < prev) label = a.labels.deleting;
-          else label = a.labels[charClass(textOf(layer, tk).charAt(v - 1))];
-          times.push(tk);
-          values.push(v);
-          labels.push(label);
-          prev = v;
-        }
-        cs.expression = "";
-        removeKeys(cs);
-        if (!times.length) {
-          times.push(layer.inPoint);
-          values.push(0);
-          labels.push(0);
-        }
-        cs.setValuesAtTimes(times, values);
-        for (var n = 1; n <= cs.numKeys; n++) {
-          cs.setInterpolationTypeAtKey(n, KeyframeInterpolationType.HOLD, KeyframeInterpolationType.HOLD);
-          if (typeof cs.setLabelAtKey === "function") {
-            try {
-              cs.setLabelAtKey(n, labels[n - 1] || 0);
-            } catch (e) {}
-          }
-        }
-        /* Only now, with no expression left on Characters Shown, may Source Text read it. */
-        if (type === "dynamic") st.expression = a.expr.dynamicTextBaked;
-        done.push(layer.name + " (" + cs.numKeys + " keyframes)");
+        done.push(layer.name + " (" + bakeLayer(layer, type, a) + " keyframes)");
       }
     } finally {
       app.endUndoGroup();
     }
     if (!done.length && !skipped.length) fail("Select a text layer with a LazyTyper rig.");
     return { ok: true, done: done, skipped: skipped };
+  }
+
+  /*
+   * Records a live rig's typing once (rig.js recorder) and puts it on Characters Shown as hold
+   * keyframes labelled by what was typed; returns how many.
+   */
+  function bakeLayer(layer, type, a) {
+    var cs = control(layer, COUNT);
+    var st = sourceText(layer);
+    var keep = st.expression;
+    var log;
+    try {
+      st.expression = a.expr.recorder;
+      log = String(st.valueAtTime(layer.outPoint, false).text);
+      if (st.expressionError) fail(layer.name + ": " + st.expressionError);
+    } finally {
+      st.expression = keep;
+    }
+    var times = [];
+    var values = [];
+    var labels = [];
+    var prev = 0;
+    var items = log ? log.split(";") : [];
+    for (var k = 0; k < items.length; k++) {
+      var pair = items[k].split(":");
+      if (pair.length !== 2) continue;
+      var tk = parseFloat(pair[0]);
+      var v = parseInt(pair[1], 10);
+      if (isNaN(tk) || isNaN(v)) continue;
+      var label;
+      if (v < prev) label = a.labels.deleting;
+      else label = a.labels[charClass(textOf(layer, tk).charAt(v - 1))];
+      times.push(tk);
+      values.push(v);
+      labels.push(label);
+      prev = v;
+    }
+    cs.expression = "";
+    removeKeys(cs);
+    if (!times.length) {
+      times.push(layer.inPoint);
+      values.push(0);
+      labels.push(0);
+    }
+    cs.setValuesAtTimes(times, values);
+    for (var n = 1; n <= cs.numKeys; n++) {
+      cs.setInterpolationTypeAtKey(n, KeyframeInterpolationType.HOLD, KeyframeInterpolationType.HOLD);
+      if (typeof cs.setLabelAtKey === "function") {
+        try {
+          cs.setLabelAtKey(n, labels[n - 1] || 0);
+        } catch (e) {}
+      }
+    }
+    /* Only now, with no expression left on Characters Shown, may Source Text read it. */
+    if (type === "dynamic") st.expression = a.expr.dynamicTextBaked;
+    return cs.numKeys;
   }
 
   function unbake(a) {
@@ -1601,6 +1881,10 @@ var LT = (function () {
     call: call,
     stringify: stringify,
     cursorTable: cursorTable,
+    cursorSizes: cursorSizes,
+    mainSize: mainSize,
+    adjacent: adjacent,
+    colorsData: colorsData,
     unitBoxes: unitBoxes,
     joinsPrevious: joinsPrevious,
     forComp: forComp,

@@ -66,7 +66,7 @@ next to a digit does not make a row.
 A rig made with LazyTyper 1.2.0 or earlier gets both at 0 when you click **Refresh**, so every
 capital and digit keeps its full slow-down, as before.
 
-![Chart: the line with all four at 0, at the defaults, and with each one at 200 %, the keys each one speeds up highlighted](media/19-fast-chart.png)
+![Chart: the line with all four at 0, at the defaults, with each one at 200 % and Repeated Letters at −50 %, then a line with NASA, ESA, 2026 and $1500 at the defaults and with Capitals in a Row and Numbers in a Row at 100 %, the keys each one changes highlighted](media/19-fast-chart.png)
 
 For "the committee will meet in the coffee shop at noon" (50 characters):
 

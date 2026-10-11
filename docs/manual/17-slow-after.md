@@ -65,7 +65,7 @@ With an empty line in between (two Returns), the second Return waits for New Lin
 after a line break), and **Empty Lines** makes that extra wait longer or shorter: pressing Return
 twice is quick for most people, so the presets set it below 0.
 
-![Chart: the line with all three at 0, at the defaults, and with each one raised, the keys each one slows highlighted](media/17-slow-after-chart.png)
+![Chart: the line with all three at 0, at the defaults, with each one raised, and with Last Character and Before Line Break at 300 %, the keys each one slows highlighted](media/17-slow-after-chart.png)
 
 For "Well, maybe. Wait: no!", a line break, "Start again." (35 characters with the line break):
 

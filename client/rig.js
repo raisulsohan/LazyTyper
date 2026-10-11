@@ -56,10 +56,19 @@
     { name: "Characters Shown", type: "slider", value: 0, group: "output" }
   ];
 
-  /* Controls on the cursor layer. Sizes are percentages of the font size. */
+  /*
+   * Controls on the cursor layer. Sizes are percentages of the font size.
+   *   since    added in that version; Refresh adds it to an older cursor
+   *   oldValue the value an older cursor gets when Refresh adds the control, when it differs from a
+   *            new rig's (so the cursor keeps looking as it did); otherwise value
+   * The cursor finds its text by parenting (Stable: its parent; Dynamic: its parent is the guide,
+   * whose parent is the text), which After Effects carries over when a whole rig is duplicated or
+   * pasted. Cursors made before 1.3.0 had two Layer Controls for that, Text Layer and Guide Layer,
+   * which a copy kept pointing at the original; Refresh takes them off.
+   */
   var CURSOR_CONTROLS = [
-    { name: "Text Layer", type: "layer" },
-    { name: "Guide Layer", type: "layer", dynamicOnly: true },
+    { name: "Show Cursor", type: "checkbox", value: 1, since: "1.3.0" },
+    { name: "Use Text Color", type: "checkbox", value: 1, oldValue: 0, since: "1.3.0" },
     { name: "Cursor Color", type: "color", value: [1, 1, 1] },
     { name: "Cursor Opacity", type: "slider", value: 100 },
     { name: "Blink", type: "checkbox", value: 1 },
@@ -69,12 +78,16 @@
     { name: "Width", type: "slider", value: 7 },
     { name: "Top", type: "slider", value: 80 },
     { name: "Bottom", type: "slider", value: 16 },
+    { name: "Size From", type: "dropdown", items: ["Character Before", "Character After"], value: 1, since: "1.3.0" },
+    { name: "Height Follows Size", type: "checkbox", value: 1, since: "1.3.0" },
+    { name: "Width Follows Size", type: "checkbox", value: 1, since: "1.3.0" },
     { name: "Roundness", type: "slider", value: 0 },
     { name: "Individual Corners", type: "checkbox", value: 0 },
     { name: "Top Left", type: "slider", value: 0 },
     { name: "Top Right", type: "slider", value: 0 },
     { name: "Bottom Right", type: "slider", value: 0 },
     { name: "Bottom Left", type: "slider", value: 0 },
+    { name: "Offset Unit", type: "dropdown", items: ["Pixels", "% of Font Size"], value: 2, oldValue: 1, since: "1.3.0" },
     { name: "X Offset", type: "slider", value: 0 },
     { name: "Y Offset", type: "slider", value: 0 }
   ];
@@ -85,9 +98,10 @@
     var g = TEXT_CONTROLS[i].group;
     if (g !== "typing" && g !== "output") TYPING_PRESET_KEYS.push(TEXT_CONTROLS[i].name);
   }
+  /* What a cursor preset stores: the shape and the blink, not the colour or Show Cursor. */
   var CURSOR_PRESET_KEYS = ["Cursor Opacity", "Blink", "Blinks per Second", "Blink While Typing", "Blink Softness",
-    "Width", "Top", "Bottom", "Roundness", "Individual Corners", "Top Left", "Top Right", "Bottom Right", "Bottom Left",
-    "X Offset", "Y Offset"];
+    "Width", "Top", "Bottom", "Size From", "Height Follows Size", "Width Follows Size", "Roundness", "Individual Corners",
+    "Top Left", "Top Right", "Bottom Right", "Bottom Left", "Offset Unit", "X Offset", "Y Offset"];
 
   /* A typing preset's values: the base speed, Variance and every Slow, Fast and Slow/Fast control. */
   function preset(fpc, variance, controls) {
@@ -189,18 +203,45 @@
     return upgradeValues(p.values) || changed;
   }
 
-  function cursorPreset(width, top, bottom, round) {
+  /*
+   * Beside a bigger word (mixed sizes in a Stable rig) every cursor grows taller; a vertical bar
+   * keeps its width (widthFollows 0), an underscore or a box grows wider too.
+   */
+  function cursorPreset(width, top, bottom, round, widthFollows) {
     return {
       "Cursor Opacity": 100, "Blink": 1, "Blinks per Second": 1, "Blink While Typing": 0, "Blink Softness": 0,
-      "Width": width, "Top": top, "Bottom": bottom, "Roundness": round, "Individual Corners": 0,
-      "Top Left": round, "Top Right": round, "Bottom Right": round, "Bottom Left": round, "X Offset": 0, "Y Offset": 0
+      "Width": width, "Top": top, "Bottom": bottom,
+      "Size From": 1, "Height Follows Size": 1, "Width Follows Size": widthFollows,
+      "Roundness": round, "Individual Corners": 0,
+      "Top Left": round, "Top Right": round, "Bottom Right": round, "Bottom Left": round,
+      "Offset Unit": 2, "X Offset": 0, "Y Offset": 0
     };
   }
   var CURSOR_PRESETS = [
-    { name: "Vertical", builtIn: true, values: cursorPreset(7, 80, 16, 0) },
-    { name: "Underscore", builtIn: true, values: cursorPreset(55, -6, 14, 0) },
-    { name: "Box", builtIn: true, values: cursorPreset(55, 80, 18, 8) }
+    { name: "Vertical", builtIn: true, values: cursorPreset(7, 80, 16, 0, 0) },
+    { name: "Underscore", builtIn: true, values: cursorPreset(55, -6, 14, 0, 1) },
+    { name: "Box", builtIn: true, values: cursorPreset(55, 80, 18, 8, 1) }
   ];
+
+  /*
+   * Brings a saved cursor preset up to date; returns true if it changed. One saved before 1.3.0
+   * lacks the newer shape controls: it gets the values that keep it looking as it did (its
+   * offsets stay in pixels).
+   */
+  function upgradeCursorPreset(p) {
+    var changed = false;
+    if (!p.values) p.values = {};
+    for (var i = 0; i < CURSOR_CONTROLS.length; i++) {
+      var d = CURSOR_CONTROLS[i];
+      if (!d.since || p.values[d.name] !== undefined) continue;
+      var keep = false;
+      for (var k = 0; k < CURSOR_PRESET_KEYS.length; k++) if (CURSOR_PRESET_KEYS[k] === d.name) keep = true;
+      if (!keep) continue;
+      p.values[d.name] = d.oldValue !== undefined ? d.oldValue : d.value;
+      changed = true;
+    }
+    return changed;
+  }
 
   /* After Effects label colours (index 1-16) for baked keyframes. */
   var LABELS = ["None", "Red", "Yellow", "Aqua", "Pink", "Lavender", "Peach", "Sea Foam", "Blue", "Green",
@@ -398,37 +439,59 @@
   }
 
   /*
-   * The three cursor expressions below carry data the host measures in After Effects, so
-   * they are templates: the host swaps each marker for its numbers.
+   * The cursor expressions below carry data the host measures in After Effects, so they are
+   * templates: the host swaps each marker for its numbers.
    *   LT_DATA     stable tables, "[time,size,[x0,y0,x1,y1,...]],...": one per Source Text
    *               keyframe; point k is where the cursor sits after k characters
    *   LT_METRICS  "var SIZE = .., LEAD = .., B0 = .., X0 = .., SPW = .., GAP = ..;"
-   *   LT_SIZES    "[time,size],...": the cursor's font size from each Source Text keyframe on;
-   *               size is a number, or for mixed sizes "[s0,s1,...]": the size after k
-   *               characters (the last character typed)
+   *   LT_SIZES    "[time,main,before,after],...": the font sizes from each Source Text keyframe on.
+   *               main is the size most of the text has; before and after are the size of the
+   *               character before and after the cursor, a number, or for mixed sizes "[s0,s1,...]"
+   *               (one for each count of characters shown)
+   *   LT_COLORS   "[time,before,after],...": the same for the text's fill colour, each "[r,g,b]" or
+   *               "[[r,g,b],...]"
+   *   LT_TEXT     how the cursor reaches its text layer: "parent" (Stable) or "parent.parent"
+   *               (Dynamic: the cursor's parent is the guide)
    */
   var DATA = "/*LT_DATA*/";
   var METRICS = "/*LT_METRICS*/";
   var SIZES = "/*LT_SIZES*/";
+  var COLORS = "/*LT_COLORS*/";
+  var TEXT = "/*LT_TEXT*/";
+
+  /* The cursor's table entry for now: the last one whose time has come. */
+  function entryNow(list, name) {
+    return "var " + name + " = " + list + "[0];\n" +
+      "for (var LT_i = 1; LT_i < " + list + ".length; LT_i++) if (" + list + "[LT_i][0] <= time + 1e-6) " + name + " = " + list + "[LT_i];\n";
+  }
+
+  /* LT_pick(list): a list's entry for the number of characters shown now (read once). */
+  var PICK_FN =
+    "var LT_k = -1;\n" +
+    "function LT_pick(list) {\n" +
+    "  if (LT_k < 0) LT_k = Math.max(0, Math.round(LT_T.effect(\"Characters Shown\")(1).value));\n" +
+    "  return list[Math.min(list.length - 1, LT_k)];\n" +
+    "}\n";
+  /* Which character the cursor takes its size (and with Use Text Color, its colour) from. */
+  var AFTER_NOW = "Math.round(effect(\"Size From\")(1).value) === 2";
 
   function stableCursorPosition() {
     return header("stable cursor") +
-      "var LT_T = effect(\"Text Layer\")(\"Layer\");\n" +
+      "var LT_T = " + TEXT + ";\n" +
       "var LT_D = [" + DATA + "];\n" +
-      "var LT_e = LT_D[0];\n" +
-      "for (var i = 1; i < LT_D.length; i++) if (LT_D[i][0] <= time + 1e-6) LT_e = LT_D[i];\n" +
+      entryNow("LT_D", "LT_e") +
       "var P = LT_e[2];\n" +
       "var k = Math.round(LT_T.effect(\"Characters Shown\")(1).value);\n" +
       "k = Math.max(0, Math.min(P.length / 2 - 1, k));\n" +
-      "var x = P[2 * k] + effect(\"X Offset\")(1).value;\n" +
-      "var y = P[2 * k + 1] + effect(\"Y Offset\")(1).value;\n" +
+      "var x = P[2 * k];\n" +
+      "var y = P[2 * k + 1];\n" +
       point3();
   }
 
-  /* Dynamic cursor position, measured live from the guide layer. */
+  /* Dynamic cursor position, measured live from the guide layer (the cursor's parent). */
   function dynamicCursorPosition() {
     return header("dynamic cursor") + STR_FN + TRAILING_SCAN +
-      "var G = effect(\"Guide Layer\")(\"Layer\");\n" +
+      "var G = parent;\n" +
       METRICS + "\n" +
       "var s = LT_str(G.text.sourceText.value);\n" +
       "var sp = 0, nl = 0, j = s.length - 1;\n" +
@@ -448,31 +511,42 @@
       "  }\n" +
       "}\n" +
       "if (nl > 0) { line += nl; x = X0; }\n" +
-      "x += sp * SPW + effect(\"X Offset\")(1).value;\n" +
-      "var y = B0 + line * LEAD + effect(\"Y Offset\")(1).value;\n" +
+      "x += sp * SPW;\n" +
+      "var y = B0 + line * LEAD;\n" +
       point3();
   }
 
-  /* Cursor rectangle: width grows to the right, top and bottom from the baseline, corners rounded. */
+  /*
+   * Cursor rectangle: width grows to the right, top and bottom from the baseline, corners rounded,
+   * moved by the offsets (in pixels, or in % of the font size: X like the width, Y like the height).
+   * Its size comes from the character before or after the cursor (Size From); height and width
+   * each follow that size or keep the text's main size.
+   */
   function cursorPath() {
     return header("cursor shape") +
+      "var LT_T = " + TEXT + ";\n" +
       "var LT_Z = [" + SIZES + "];\n" +
-      "var S = LT_Z[0][1];\n" +
-      "for (var i = 1; i < LT_Z.length; i++) if (LT_Z[i][0] <= time + 1e-6) S = LT_Z[i][1];\n" +
-      "if (typeof S === \"object\") {\n" +
-      "  var LT_k = Math.round(effect(\"Text Layer\")(\"Layer\").effect(\"Characters Shown\")(1).value);\n" +
-      "  S = S[Math.max(0, Math.min(S.length - 1, LT_k))];\n" +
-      "}\n" +
-      "var w = Math.max(0, effect(\"Width\")(1).value) / 100 * S;\n" +
-      "var y0 = -effect(\"Top\")(1).value / 100 * S;\n" +
-      "var y1 = effect(\"Bottom\")(1).value / 100 * S;\n" +
+      entryNow("LT_Z", "Z") +
+      PICK_FN +
+      "var S = " + AFTER_NOW + " ? Z[3] : Z[2];\n" +
+      "if (typeof S === \"object\") S = LT_pick(S);\n" +
+      "var SH = effect(\"Height Follows Size\")(1).value > 0.5 ? S : Z[1];\n" +
+      "var SW = effect(\"Width Follows Size\")(1).value > 0.5 ? S : Z[1];\n" +
+      "var pct = Math.round(effect(\"Offset Unit\")(1).value) === 2;\n" +
+      "var ox = effect(\"X Offset\")(1).value * (pct ? SW / 100 : 1);\n" +
+      "var oy = effect(\"Y Offset\")(1).value * (pct ? SH / 100 : 1);\n" +
+      "var w = Math.max(0, effect(\"Width\")(1).value) / 100 * SW;\n" +
+      "var y0 = -effect(\"Top\")(1).value / 100 * SH;\n" +
+      "var y1 = effect(\"Bottom\")(1).value / 100 * SH;\n" +
       "if (y1 < y0) { var tmp = y0; y0 = y1; y1 = tmp; }\n" +
       "var lim = Math.min(w, y1 - y0) / 2;\n" +
       "var ind = effect(\"Individual Corners\")(1).value > 0.5;\n" +
       "var all = effect(\"Roundness\")(1).value;\n" +
       "function R(n) { var v = (ind ? effect(n)(1).value : all) / 100; return Math.max(0, Math.min(1, v)) * lim; }\n" +
       "var a = R(\"Top Left\"), b = R(\"Top Right\"), c = R(\"Bottom Right\"), d = R(\"Bottom Left\");\n" +
-      "var K = 0.5523, x0 = 0, x1 = w;\n" +
+      "var K = 0.5523, x0 = ox, x1 = ox + w;\n" +
+      "y0 += oy;\n" +
+      "y1 += oy;\n" +
       "createPath(\n" +
       "  [[x0 + a, y0], [x1 - b, y0], [x1, y0 + b], [x1, y1 - c], [x1 - c, y1], [x0 + d, y1], [x0, y1 - d], [x0, y0 + a]],\n" +
       "  [[-a * K, 0], [0, 0], [0, -b * K], [0, 0], [c * K, 0], [0, 0], [0, d * K], [0, 0]],\n" +
@@ -480,11 +554,13 @@
       "  true)";
   }
 
+  /* Show Cursor off hides it; otherwise Cursor Opacity, blinking. */
   function cursorOpacity() {
     return header("cursor blink") +
-      "var T = effect(\"Text Layer\")(\"Layer\");\n" +
+      "var T = " + TEXT + ";\n" +
       "var o = effect(\"Cursor Opacity\")(1).value;\n" +
-      "if (effect(\"Blink\")(1).value > 0.5) {\n" +
+      "if (effect(\"Show Cursor\")(1).value < 0.5) o = 0;\n" +
+      "else if (effect(\"Blink\")(1).value > 0.5) {\n" +
       "  var rate = Math.max(0.01, effect(\"Blinks per Second\")(1).value);\n" +
       "  var busy = false;\n" +
       "  if (effect(\"Blink While Typing\")(1).value < 0.5) {\n" +
@@ -503,8 +579,23 @@
       "o";
   }
 
+  /*
+   * Use Text Color on: the fill colour of the character the cursor takes its size from (measured
+   * per character in a Stable rig, the first character's in a Dynamic one). Off: Cursor Color.
+   */
   function cursorColor() {
-    return header("cursor colour") + "effect(\"Cursor Color\")(1)";
+    return header("cursor colour") +
+      "var LT_T = " + TEXT + ";\n" +
+      "var LT_C = [" + COLORS + "];\n" +
+      PICK_FN +
+      "var LT_c = effect(\"Cursor Color\")(1).value;\n" +
+      "if (effect(\"Use Text Color\")(1).value > 0.5) {\n" +
+      "  " + entryNow("LT_C", "Z").replace(/\n(?=.)/g, "\n  ") +
+      "  var v = " + AFTER_NOW + " ? Z[2] : Z[1];\n" +
+      "  if (typeof v[0] === \"object\") v = LT_pick(v);\n" +
+      "  LT_c = [v[0], v[1], v[2], 1];\n" +
+      "}\n" +
+      "LT_c";
   }
 
   /* Everything the host needs to build or refresh a rig, in one object. */
@@ -540,6 +631,7 @@
     valuesForFps: valuesForFps,
     upgradeValues: upgradeValues,
     upgradeTypingPreset: upgradeTypingPreset,
+    upgradeCursorPreset: upgradeCursorPreset,
     LABELS: LABELS,
     LABEL_HEX: LABEL_HEX,
     DEFAULT_KEY_LABELS: DEFAULT_KEY_LABELS,

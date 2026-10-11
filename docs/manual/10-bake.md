@@ -8,7 +8,8 @@ keystroke can be moved by hand. **Unbake** (Shift+click) brings the live rig bac
 
 ## Where to find it
 
-Card **4 · Rig**, the middle button; the note under the buttons is a reminder of Shift+click:
+Card **4 · Rig**, the middle button; the note under the buttons is a reminder of Shift+click (on
+Refresh it switches Dynamic and Stable, on Bake it unbakes):
 
 ![The Rig card: 1 Bake, 2 the note about colours and Shift+click](media/10-card.png)
 
@@ -79,6 +80,9 @@ back, so changes you made to the keyframes are lost.
 
 - **After baking, the controls do nothing**: Variance, speed, presets, Erase, Start typing and
   Pause markers no longer change the typing until you unbake. Bake last.
+- **Changed the text of a baked rig?** Click **Refresh**: it bakes the rig again from its controls,
+  so the keyframes fit the new text. The panel asks first, because keystrokes moved by hand go back
+  (chapter 9).
 - **Long texts** play much faster baked, in both expression engines.
 - **To retime one stretch**: bake, select the keyframes from that keystroke on, drag them.
 - **Unbake loses hand edits**: save a copy of the layer first if you might want them back.

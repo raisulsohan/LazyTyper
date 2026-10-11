@@ -90,9 +90,12 @@ its characters, was always right.
    colour in the Character panel.
 2. Rig it **Stable**: it keeps every character's style. (A Dynamic rig rebuilds the text as it types
    and keeps only the first style.)
-3. The cursor takes the size of the last character typed: it grows beside the big word.
-4. After changing the text, or a word's font or size, later, the top of the panel turns amber:
-   click it to refresh (chapter 9). Colour changes need no Refresh.
+3. The cursor takes the size and colour of the last character typed: it grows beside the big word
+   and turns gold beside the gold one. With the Vertical cursor only its height grows; *Size From*,
+   *Height Follows Size* and *Width Follows Size* change that (chapter 25), *Use Text Color* the
+   colour (chapter 23).
+4. After changing the text, or a word's font, size or colour, later, the top of the panel turns
+   amber: click it to refresh (chapter 9).
 
 ## Speed keyed to a voice-over
 
@@ -128,6 +131,14 @@ After **Bake** (chapter 10), every keystroke is a keyframe you can move.
 
 The keyframes are holds, so moving them never makes in-between counts. Unbake throws these edits
 away.
+
+## The same typing in several comps
+
+Make one rig, set it up, then copy it wherever it is needed: select its text, cursor and guide,
+**Edit › Copy**, open the other comp, **Edit › Paste**. Each copy is a rig of its own: change its text
+and it types its own words, with its own cursor (chapter 22). Duplicate (Ctrl+D) does the same within
+one comp, for a list of lines that type one after another: duplicate, change the text, slide the
+copy later in the Timeline.
 
 ## Rigs without the panel
 

@@ -411,6 +411,19 @@ optgroup { background: var(--card); color: var(--muted); font-style: normal; }
 
 .note { color: var(--muted); font-size: 10.5px; }
 
+/* Asks before a Refresh bakes a baked rig again (keystrokes moved by hand go back). */
+.confirm {
+  border: 1px solid var(--amber-strong);
+  background: var(--amber-soft);
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+.confirm-text { color: var(--amber); font-size: 11px; line-height: 1.35; }
+.confirm-btns { display: flex; justify-content: flex-end; margin-top: 6px; }
+.confirm-btns > * + * { margin-left: 5px; }
+.btn--amber { background: var(--amber-strong); border-color: var(--amber-strong); color: #fff; }
+.btn--amber:hover { filter: brightness(1.12); }
+
 /* ---------- rhythm preview ---------- */
 
 .card > .preset-rate { margin-top: 4px; font-size: 10px; color: var(--text-2); }
