@@ -788,16 +788,31 @@ export async function openSession({ start = false } = {}) {
       let shot = top;
       let d = 0;
       if (45 + 38 * (last + 1) > H - 4) {
-        await wheel(top.f, -60);
-        shot = await grab("bottom", top.f);
-        // The shift d at which the scrolled rows line up with the unscrolled ones.
-        let best = Infinity;
-        for (let k = 0; k < H - 160; k++) {
-          let sum = 0;
-          let n = 0;
-          for (let y = 45; y + k < H - 4; y += 2) for (let x = 30; x < W - 40; x += 6) { sum += Math.abs(shot.gray[y * W + x] - top.gray[(y + k) * W + x]); n++; }
-          if (n > 4000 && sum / n < best) { best = sum / n; d = k; }
+        // The shift at which picture b's rows line up with picture a's (b scrolled further down).
+        const shift = (a, b) => {
+          let best = Infinity;
+          let at = 0;
+          for (let k = 0; k < H - 160; k++) {
+            let sum = 0;
+            let n = 0;
+            for (let y = 45; y + k < H - 4; y += 2) for (let x = 30; x < W - 40; x += 6) { sum += Math.abs(b.gray[y * W + x] - a.gray[(y + k) * W + x]); n++; }
+            if (n > 4000 && sum / n < best) { best = sum / n; at = k; }
+          }
+          return at;
+        };
+        // A few notches at a time, each picture matched with the one before (they share most of
+        // their rows), until the last ringed row shows or the panel scrolls no further. One long
+        // scroll left too few shared rows to match once a rig had 31 controls.
+        let prev = top;
+        for (let step = 0; step < 40 && 45 + 38 * (last + 1) - d > H - 4; step++) {
+          await wheel(top.f, -3);
+          const next = await grab(`step${step}`, top.f);
+          const k = shift(prev, next);
+          if (k <= 0) break;
+          d += k;
+          prev = next;
         }
+        shot = prev;
         if (45 + 38 * first - d < 45) throw new Error(`${controls.join(", ")} do not fit in Effect Controls at once`);
       }
       const y0 = 45 + 38 * first - d;

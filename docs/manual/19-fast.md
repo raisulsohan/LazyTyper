@@ -11,7 +11,7 @@ others at their defaults.*
 
 ## Where to find them
 
-![Effect Controls: the four Fast: controls ringed (this line has Repeated Letters at 200)](media/19-fast-effect-controls.png)
+![Effect Controls: the six Fast: controls ringed, Capitals in a Row and Numbers in a Row after Repeated Letters (this line has Repeated Letters at 200)](media/19-fast-effect-controls.png)
 
 **Fast: Capitals in a Row** and **Fast: Numbers in a Row** come right after Fast: Repeated Letters.
 

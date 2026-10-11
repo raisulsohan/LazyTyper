@@ -10,7 +10,7 @@ Punctuation 600 %, Sentence End 1000 %, New Line 1000 %), the others at their de
 
 ## Where to find them
 
-![Effect Controls: Slow: After Punctuation, Sentence End and New Line ringed (this line has After Punctuation at 600)](media/17-slow-after-effect-controls.png)
+![Effect Controls: Slow: After Punctuation, Sentence End, Last Character, Before Line Break and New Line ringed (this line has After Punctuation at 600)](media/17-slow-after-effect-controls.png)
 
 In Effect Controls they come in this order: Slow: After Punctuation, Slow: Sentence End,
 **Slow: Last Character**, **Slow: Before Line Break**, Slow: New Line. **Slow/Fast: Empty Lines**

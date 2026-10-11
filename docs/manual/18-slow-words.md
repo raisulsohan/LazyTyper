@@ -11,7 +11,7 @@ characters by their place in a word, by being rare, or by the finger that types 
 
 ## Where to find them
 
-![Effect Controls: Slow: Word Start, Long Words and Rare Letters ringed (this line has Word Start at 200)](media/18-slow-words-effect-controls.png)
+![Effect Controls: Slow: Word Start, Long Words, Rare Letters and Same Finger ringed (this line has Word Start at 200)](media/18-slow-words-effect-controls.png)
 
 **Slow: Same Finger** comes right after Slow: Rare Letters.
 
