@@ -89,7 +89,9 @@ its characters, was always right.
    colour in the Character panel.
 2. Rig it **Stable**: it keeps every character's style. (A Dynamic rig rebuilds the text as it types
    and keeps only the first style.)
-3. After changing the text or its styles later, click **Refresh** (chapter 9).
+3. The cursor takes the size of the last character typed: it grows beside the big word.
+4. After changing the text, or a word's font or size, later, the top of the panel turns amber:
+   click it to refresh (chapter 9). Colour changes need no Refresh.
 
 ## Speed keyed to a voice-over
 

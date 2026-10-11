@@ -211,6 +211,24 @@ for (const p of rig.TYPING_PRESETS) {
   ctx.thisLayer.text = ctx.text;
   const out = vm.runInNewContext(set.stableCount, ctx);
   check("stable count expression runs", out === 3, out);
+
+  // The cursor shape takes the size of the last character typed when sizes are mixed.
+  const shapeAt = (sizes, shown) => {
+    const controls = { Width: 10, Top: 80, Bottom: 20, Roundness: 0, "Individual Corners": 0,
+      "Top Left": 0, "Top Right": 0, "Bottom Right": 0, "Bottom Left": 0 };
+    const textLayer = { effect: () => () => ({ value: shown }) };
+    const shape = vm.runInNewContext(set.cursorPath.replace("/*LT_SIZES*/", sizes), {
+      time: 1,
+      effect: (n) => (n === "Text Layer" ? () => textLayer : () => ({ value: controls[n] })),
+      createPath: (pts) => pts
+    });
+    const ys = shape.map((p) => p[1]);
+    return Math.round(Math.max(...ys) - Math.min(...ys));
+  };
+  check("cursor size: one size for all", shapeAt("[0,50]", 3) === 50, shapeAt("[0,50]", 3));
+  check("cursor size: follows the last character typed", shapeAt("[0,[50,50,100,100,50]]", 2) === 100 && shapeAt("[0,[50,50,100,100,50]]", 4) === 50,
+    `${shapeAt("[0,[50,50,100,100,50]]", 2)} ${shapeAt("[0,[50,50,100,100,50]]", 4)}`);
+  check("cursor size: past the end keeps the last", shapeAt("[0,[50,100]]", 9) === 100, shapeAt("[0,[50,100]]", 9));
 }
 
 // 14. Text units (grapheme clusters) for joined letters, as After Effects 26.5 counts them

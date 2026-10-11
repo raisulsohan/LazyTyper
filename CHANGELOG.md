@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Mixed font sizes in a Stable rig: the cursor takes the size of the last character typed (it
+  grows beside a big word and shrinks back after it), and the gap after a letter and the width
+  of a space follow each character's size. Reads the text's character styles (After Effects
+  24.3 and later; older versions keep using the first style).
+- The panel's Refresh prompt now also notices a font, size or tracking change on part of a
+  Stable rig's text (it compares where the lines start and end and the text's bounds), but not
+  a colour change, which needs no Refresh. Rigs made earlier get the new check at their next
+  Refresh.
+
 ## 1.1.2 - 2026-10-11
 
 - Bengali (and Devanagari and the other Indian scripts): the cursor follows the text. After

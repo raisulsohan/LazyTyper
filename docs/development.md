@@ -64,6 +64,11 @@ Found by `tools/spikes/spikes.jsx` and later probes in After Effects 26.5:
   unpredictably in the JavaScript engine, so the Dynamic rig keeps one direction at a time.
 - Create Shapes from Text (`3781`) makes one group per glyph, named by its character, in
   the text layer's space; spaces and line breaks get none.
+- `TextDocument.characterRange(i, i + 1).fontSize` (After Effects 24.3+) reads one
+  character's size: a Stable rig's cursor sizes (`charSizes`, `cursorSizes` in host.jsx) come
+  from it. A font, size or tracking change on part of the text moves `baselineLocs` (each
+  line's start and end) and the text's bounds, which is what the Refresh fingerprint
+  compares; a colour change moves neither.
 
 ## Rules the code keeps
 

@@ -49,8 +49,9 @@ All as one undo step, *LazyTyper: Refresh Rig*, on every selected rig.
 - **Refresh at a time when the text has its final style.** A rig reads the text's first style; for a
   Dynamic rig the style is checked at the layer's end.
 - **The cursor sits in the wrong place but the panel is not amber**: the change may be one the panel
-  does not look at (a style on part of the text, an animator of your own). Refresh anyway; it is
-  harmless.
+  does not look at (an animator of your own, say). Refresh anyway; it is harmless. For a Stable
+  rig the panel also notices a font, size or tracking change on part of the text, because that
+  moves the lines; a colour change does not need a Refresh and is not flagged.
 - **Several rigs**: select them all and refresh once.
 
 ## Related

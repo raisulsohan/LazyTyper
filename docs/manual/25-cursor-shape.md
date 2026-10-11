@@ -32,8 +32,9 @@ right after the last character. **Box** is Width 55, Top 80, Bottom 18.
 
 ## Tips and pitfalls
 
-- **Mixed font sizes** in a Stable rig: the cursor's size follows the font size of each Source Text
-  keyframe's first style, not the size of the last character typed.
+- **Mixed font sizes** in a Stable rig: the cursor takes the size of the last character typed, so
+  it grows beside a big word and shrinks back after it (After Effects 24.3 and later; older
+  versions use the text's first style).
 - **A cursor that starts too far from the text**: use X Offset (chapter 27), not Width.
 - **After changing the font size**, the panel asks for a Refresh: the cursor is measured again
   (chapter 9).

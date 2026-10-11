@@ -633,14 +633,20 @@ var LT = (function () {
    * Where the cursor sits after k characters, for k = 0..text.length, as a flat
    * [x0, y0, x1, y1, ...] in the text layer's space. A character inside a unit puts the cursor
    * after the whole unit, which the Stable rig shows as soon as its first character is typed.
+   * sizes (optional) holds each character's font size: the gap after a letter and the width of
+   * a space grow and shrink with it, as they do in the text.
    */
-  function cursorTable(text, glyphs, lines, m) {
+  function cursorTable(text, glyphs, lines, m, sizes) {
     var n = text.length;
     var G = unitBoxes(text, glyphs);
     var i;
     if (!lines.length) lines = [{ x1: m.lineStart, y: m.firstBaseline, x2: m.lineStart }];
-    function lineOf(g) {
-      var cy = (g.t + g.b) / 2 + 0.35 * m.size;
+    function scale(at) {
+      if (!sizes || at < 0 || at >= sizes.length || !(m.size > 0)) return 1;
+      return sizes[at] / m.size;
+    }
+    function lineOf(g, at) {
+      var cy = (g.t + g.b) / 2 + 0.35 * m.size * scale(at);
       var best = 0;
       var bestD = 1e9;
       for (var L = 0; L < lines.length; L++) {
@@ -672,20 +678,22 @@ var LT = (function () {
       if (isBreak(text.charAt(i))) break;
     }
     if (n > 0 && G[0]) {
-      line = lineOf(G[0]);
-      x = G[0].l - m.gap;
+      line = lineOf(G[0], 0);
+      x = G[0].l - m.gap * scale(0);
     } else {
       x = lineX(0);
     }
     out.push(x, lineY(line));
     var last = null;
+    var lastAt = -1;
     var run = 0;
     for (var k = 1; k <= n; k++) {
       var c = text.charAt(k - 1);
       if (G[k - 1]) {
         last = G[k - 1];
-        line = lineOf(last);
-        x = last.r + m.gap;
+        lastAt = k - 1;
+        line = lineOf(last, lastAt);
+        x = last.r + m.gap * scale(lastAt);
         run = 0;
       } else if (isBreak(c)) {
         line++;
@@ -698,11 +706,11 @@ var LT = (function () {
         while (j < n && !G[j] && !isBreak(text.charAt(j))) j++;
         var next = j < n ? G[j] : null;
         var runLen = run + (j - k);
-        var from = last ? last.r + m.gap : lineX(line);
-        if (last && next && lineOf(next) === line && next.l - m.gap > from) {
-          x = from + (next.l - m.gap - from) * run / runLen;
+        var from = last ? last.r + m.gap * scale(lastAt) : lineX(line);
+        if (last && next && lineOf(next, j) === line && next.l - m.gap * scale(j) > from) {
+          x = from + (next.l - m.gap * scale(j) - from) * run / runLen;
         } else {
-          x = from + run * m.spaceWidth;
+          x = from + run * m.spaceWidth * scale(k - 1);
         }
       }
       out.push(x, lineY(line));
@@ -724,6 +732,60 @@ var LT = (function () {
     return times;
   }
 
+  /*
+   * The font size of every character, from the text's own character styles
+   * (TextDocument.characterRange, After Effects 24.3 and later). Older versions, or a range
+   * that cannot be read, give the first style's size.
+   */
+  function charSizes(doc) {
+    var n = String(doc.text).length;
+    var base = doc.fontSize;
+    var out = [];
+    var ranged = typeof doc.characterRange === "function";
+    for (var i = 0; i < n; i++) {
+      var s = base;
+      if (ranged) {
+        try {
+          var v = doc.characterRange(i, i + 1).fontSize;
+          if (v > 0) s = v;
+        } catch (e) {}
+      }
+      out.push(s);
+    }
+    return out;
+  }
+
+  /*
+   * The cursor's size after k characters, for k = 0..text.length: the size of the last
+   * character typed, or at the start of a line, of the next one.
+   */
+  function cursorSizes(text, sizes, base) {
+    var n = text.length;
+    var out = [];
+    for (var k = 0; k <= n; k++) {
+      var at = k - 1;
+      if (at < 0 || isBreak(text.charAt(at))) at = k < n ? k : k - 1;
+      out.push(at >= 0 && at < n ? sizes[at] : base);
+    }
+    return out;
+  }
+
+  /* "size" when every entry is the same, "[s0,s1,...]" otherwise (one per character count). */
+  function sizesData(list, base) {
+    if (!list.length) return fmt(base);
+    var same = true;
+    for (var i = 1; i < list.length; i++) {
+      if (Math.abs(list[i] - list[0]) > 0.05) {
+        same = false;
+        break;
+      }
+    }
+    if (same) return fmt(list[0]);
+    var parts = [];
+    for (var p = 0; p < list.length; p++) parts.push(fmt(list[p]));
+    return "[" + parts.join(",") + "]";
+  }
+
   /* Stable rig: one cursor table per Source Text keyframe, ready for the LT_DATA marker. */
   function measureStable(layer, m) {
     var comp = layer.containingComp;
@@ -742,11 +804,12 @@ var LT = (function () {
         var doc = sourceText(layer).valueAtTime(ct, true);
         var text = String(doc.text);
         var glyphs = text.length ? outlineGlyphs(layer) : [];
-        var pts = cursorTable(text, glyphs, baselines(doc), m);
+        var each = charSizes(doc);
+        var pts = cursorTable(text, glyphs, baselines(doc), m, each);
         var parts = [];
         for (var p = 0; p < pts.length; p++) parts.push(fmt(pts[p]));
         data.push("[" + fmt(t) + "," + fmt(doc.fontSize) + ",[" + parts.join(",") + "]]");
-        sizes.push("[" + fmt(t) + "," + fmt(doc.fontSize) + "]");
+        sizes.push("[" + fmt(t) + "," + sizesData(cursorSizes(text, each, doc.fontSize), doc.fontSize) + "]");
       }
     } finally {
       if (anim) anim.enabled = animOn;
@@ -892,9 +955,27 @@ var LT = (function () {
     var s = "";
     for (var i = 0; i < times.length; i++) {
       var d = st.valueAtTime(times[i], false);
-      s += styleOf(d) + "#" + d.text + "\n";
+      s += styleOf(d) + "#" + d.text + "#" + layoutOf(layer, d, times[i]) + "\n";
     }
     return hash(s);
+  }
+
+  /*
+   * Where the text's lines start and end, and its bounds: any font, size or tracking change on
+   * part of the text moves these, a colour change does not. Rounded to a pixel, so the
+   * fingerprint only changes when the layout does.
+   */
+  function layoutOf(layer, doc, t) {
+    var parts = [];
+    try {
+      var b = doc.baselineLocs;
+      for (var i = 0; b && i < b.length; i++) parts.push(Math.round(b[i]));
+    } catch (e) {}
+    try {
+      var r = layer.sourceRectAtTime(t, false);
+      parts.push(Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height));
+    } catch (e2) {}
+    return parts.join(",");
   }
 
   /* True when the cursor was measured for a style or text the layer no longer has. */

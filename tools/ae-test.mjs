@@ -1,6 +1,8 @@
 // Runs LazyTyper inside the real After Effects and checks it against the Node engine.
 //
 //   node tools/ae-test.mjs            (asks nothing: start After Effects yourself or let it start)
+//   node tools/ae-test.mjs --only dynamic-bengali,stable-point --engine extendscript
+//                                     (some cases, one engine: to look at one failure quickly)
 //
 // For each expression engine (legacy ExtendScript, then JavaScript):
 // 1. tools/ae/fresh-project.jsx gives After Effects a new project (saving a copy of the open
@@ -33,7 +35,13 @@ Object.assign(values, typing);
 
 // "ami banglay kshama karma kotha." with a conjunct, a reph and a two-part vowel sign.
 const BENGALI = "আমি বাংলায় ক্ষমা কর্ম কোথা।";
-const cases = [
+const arg = (flag) => {
+  const i = process.argv.indexOf(flag);
+  return i > 0 ? process.argv[i + 1] : null;
+};
+const only = arg("--only") ? arg("--only").split(",") : null;
+const engines = arg("--engine") ? [arg("--engine")] : ["extendscript", "javascript-1.0"];
+const allCases = [
   { id: "stable-point", type: "stable", text: "Hello, world. This is LazyTyper!", box: null, just: "left" },
   { id: "dynamic-point", type: "dynamic", text: "Dynamic text, typing on.\rSecond line here", box: null, just: "left" },
   { id: "dynamic-box", type: "dynamic", text: "A paragraph that wraps across the box as each word is typed on screen.", box: [700, 400], just: "center" },
@@ -43,6 +51,11 @@ const cases = [
   { id: "dynamic-bengali", type: "dynamic", text: BENGALI, box: null, just: "left", font: "NirmalaUI", joined: true },
   { id: "stable-bengali", type: "stable", text: BENGALI, box: null, just: "left", font: "NirmalaUI", joined: true }
 ];
+const cases = only ? allCases.filter((c) => only.includes(c.id)) : allCases;
+if (!cases.length) {
+  console.error(`no case called ${only.join(", ")}`);
+  process.exit(2);
+}
 for (const c of cases) {
   const ev = lazyTyperRun({
     time: 9.9, fd: FD, start: 0, record: true, pauses: [],
@@ -66,7 +79,7 @@ const aeRun = (script, result, timeout) =>
 let failed = 0;
 let total = 0;
 let version = "";
-for (const engine of ["extendscript", "javascript-1.0"]) {
+for (const engine of engines) {
   // A new project in a run of its own, then the test in the next run (see fresh-project.jsx).
   const fresh = path.join(process.env.TEMP, "LazyTyper", "fresh.json");
   try {

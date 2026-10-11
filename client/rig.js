@@ -310,7 +310,9 @@
    *   LT_DATA     stable tables, "[time,size,[x0,y0,x1,y1,...]],...": one per Source Text
    *               keyframe; point k is where the cursor sits after k characters
    *   LT_METRICS  "var SIZE = .., LEAD = .., B0 = .., X0 = .., SPW = .., GAP = ..;"
-   *   LT_SIZES    "[time,size],...": the font size from each Source Text keyframe on
+   *   LT_SIZES    "[time,size],...": the cursor's font size from each Source Text keyframe on;
+   *               size is a number, or for mixed sizes "[s0,s1,...]": the size after k
+   *               characters (the last character typed)
    */
   var DATA = "/*LT_DATA*/";
   var METRICS = "/*LT_METRICS*/";
@@ -364,6 +366,10 @@
       "var LT_Z = [" + SIZES + "];\n" +
       "var S = LT_Z[0][1];\n" +
       "for (var i = 1; i < LT_Z.length; i++) if (LT_Z[i][0] <= time + 1e-6) S = LT_Z[i][1];\n" +
+      "if (typeof S === \"object\") {\n" +
+      "  var LT_k = Math.round(effect(\"Text Layer\")(\"Layer\").effect(\"Characters Shown\")(1).value);\n" +
+      "  S = S[Math.max(0, Math.min(S.length - 1, LT_k))];\n" +
+      "}\n" +
       "var w = Math.max(0, effect(\"Width\")(1).value) / 100 * S;\n" +
       "var y0 = -effect(\"Top\")(1).value / 100 * S;\n" +
       "var y1 = effect(\"Bottom\")(1).value / 100 * S;\n" +

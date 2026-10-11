@@ -264,6 +264,83 @@
       save();
     }
 
+    // Mixed sizes in a Stable rig: the cursor takes the size of the last character typed, and
+    // the panel asks for a Refresh when part of the text changes size, not when it only
+    // changes colour.
+    (function () {
+      var name = tag + "mixed sizes";
+      var ml = makeText(comp, { id: "mixed", text: "Small BIG small", box: null, just: "left" });
+      var mst = LT.sourceText(ml);
+      var md = mst.value;
+      if (typeof md.characterRange !== "function") {
+        check(name + ": characterRange available", false, "missing");
+        return;
+      }
+      md.characterRange(6, 9).fontSize = 128;
+      mst.setValue(md);
+      select(comp, ml);
+      var mres = call("createRig", { type: "stable", cursor: true });
+      check(name + ": create", mres.ok && !mres.problems.length, mres.msg || mres.problems);
+      ml = comp.layer("mixed");
+      mst = LT.sourceText(ml);
+      var mcs = LT.control(ml, "Characters Shown");
+      var mcur = LT.findCursor(ml);
+      var mpath = mcur.property("ADBE Root Vectors Group").property("Cursor").property("ADBE Vectors Group")
+        .property("ADBE Vector Shape - Group").property("ADBE Vector Shape");
+      function heightWhen(k) {
+        for (var f = 0; f < 360; f++) {
+          if (Math.round(mcs.valueAtTime(f * FD, false)) === k) {
+            var v = mpath.valueAtTime(f * FD, false).vertices;
+            var lo = 1e9, hi = -1e9;
+            for (var q = 0; q < v.length; q++) {
+              lo = Math.min(lo, v[q][1]);
+              hi = Math.max(hi, v[q][1]);
+            }
+            return hi - lo;
+          }
+        }
+        return -1;
+      }
+      var hSmall = heightWhen(5);
+      var hBig = heightWhen(9);
+      var hBack = heightWhen(15);
+      check(name + ": cursor grows beside the big word", hSmall > 0 && hBig > hSmall * 1.8 && Math.abs(hBack - hSmall) < 1,
+        hSmall + " -> " + hBig + " -> " + hBack);
+      function asks() {
+        select(comp, comp.layer("mixed"));
+        var inf = call("selectionInfo", { detail: true });
+        return inf.layers && inf.layers[0] ? inf.layers[0].needsRefresh : "no layer";
+      }
+      check(name + ": no Refresh asked after create", asks() === false, asks());
+      md = mst.value;
+      md.characterRange(0, 5).fillColor = [1, 0.5, 0];
+      mst.setValue(md);
+      check(name + ": a colour change asks for no Refresh", asks() === false, asks());
+      md = mst.value;
+      md.characterRange(10, 15).fontSize = 90;
+      mst.setValue(md);
+      check(name + ": a size change on the last word asks for Refresh", asks() === true, asks());
+      select(comp, comp.layer("mixed"));
+      call("refreshRig", {});
+      check(name + ": Refresh clears it", asks() === false, asks());
+      // Keyframed text: the fingerprint must not depend on where the playhead is.
+      mst = LT.sourceText(comp.layer("mixed"));
+      var k0 = mst.value;
+      mst.setValueAtTime(0, k0);
+      var k1 = mst.value;
+      k1.text = "Then something else";
+      mst.setValueAtTime(2, k1);
+      select(comp, comp.layer("mixed"));
+      call("refreshRig", {});
+      comp.time = 0;
+      var a0 = asks();
+      comp.time = 3;
+      var a3 = asks();
+      check(name + ": keyframed text, same answer at any time", a0 === false && a3 === false, a0 + " " + a3);
+      comp.time = 0;
+    })();
+    save();
+
     // Timeline helpers on the first rig.
     var first = comp.layer(fx.cases[0].id);
     select(comp, first);
@@ -285,12 +362,18 @@
     var ap = call("applyValues", { kind: "typing", values: { "Frames Per Character": 4 } });
     check(tag + "apply typing values", ap.ok && LT.control(first, "Frames Per Character").value === 4, ap.msg);
     var info = call("selectionInfo", {});
-    check(tag + "selection info", info.ok && info.layers.length === 1 && info.layers[0].rig === "stable", LT.stringify(info));
+    check(tag + "selection info", info.ok && info.layers.length === 1 && info.layers[0].rig === fx.cases[0].type, LT.stringify(info));
     var rm = call("removeRig", {});
     check(tag + "remove rig", rm.ok && !LT.control(first, "Typing") && !LT.findCursor(first), rm.msg);
 
     // Dynamic rig erased with nothing typed after: the panel still reads the full text.
-    var dc = fx.cases[1];
+    // (Any Dynamic case but the first, whose rig was just removed; none when run with --only.)
+    var dc = null;
+    for (var dci = 1; dci < fx.cases.length && !dc; dci++) if (fx.cases[dci].type === "dynamic") dc = fx.cases[dci];
+    if (!dc) {
+      save();
+      return;
+    }
     var dyn = comp.layer(dc.id);
     select(comp, dyn);
     comp.time = 1;
