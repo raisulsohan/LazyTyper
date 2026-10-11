@@ -1,7 +1,7 @@
 # Building from source
 
 How LazyTyper works, the rules its code keeps, how it is tested and how a release is
-built. *Written for LazyTyper 1.2.0.*
+built. *Written for LazyTyper 1.3.0.*
 
 ## How it fits together
 

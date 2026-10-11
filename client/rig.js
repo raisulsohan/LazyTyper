@@ -11,7 +11,7 @@
   var engine = (typeof lazyTyperRun === "function") ? lazyTyperRun :
     (typeof require === "function" ? require("./engine.js").lazyTyperRun : null);
 
-  var VERSION = "1.2.0";
+  var VERSION = "1.3.0";
   var TAG = "LazyTyper";
 
   /*

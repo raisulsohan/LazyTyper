@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 - 2026-10-11
 
 Rigs and presets made with 1.2.0 keep typing and looking exactly as before: the new controls
 start at values that change nothing, and Refresh, Bake and Unbake add them to an older rig.
