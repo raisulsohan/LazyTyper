@@ -184,6 +184,7 @@ function syncVersion() {
     { file: "host/host.jsx", find: /(var VERSION = )"[\d.]+"/, to: `$1"${VERSION}"` },
     { file: "client/index.html", find: /(id="footVersion">LazyTyper )[\d.]+/, to: `$1${VERSION}` },
     { file: "README.md", find: /LazyTyper-v[\d.]+\.zip/g, to: zipName },
+    { file: "docs/manual/01-install.md", find: /LazyTyper-v[\d.]+\.zip/g, to: zipName },
     { file: "README.md", find: /(\*\*Version )[\d.]+(\*\*)/g, to: `$1${SHORT}$2` },
   ];
   for (const edit of edits) {

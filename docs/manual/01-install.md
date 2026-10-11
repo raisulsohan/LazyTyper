@@ -7,7 +7,7 @@ signed: no extension manager, no Adobe setting to change.
 
 ## Install
 
-1. Download `LazyTyper-v1.1.zip` from the
+1. Download `LazyTyper-v1.1.2.zip` from the
    [releases page](https://github.com/raisulsohan/LazyTyper/releases) and unzip it anywhere (the
    Desktop is fine).
 2. Close After Effects. A running After Effects holds on to an older panel's files.
@@ -15,7 +15,8 @@ signed: no extension manager, no Adobe setting to change.
    - Windows: double-click **Install LazyTyper.bat**.
    - macOS: double-click **Install LazyTyper (macOS).command** (if macOS refuses, right-click it
      and choose **Open**).
-4. Wait for **Installed**, then press a key to close the window.
+4. The window first reminds you to close After Effects: press a key. Wait for **Installed**, then
+   press a key to close the window.
 5. Start After Effects and choose **Window › Extensions › LazyTyper**. The panel opens as in the
    picture above. Dock it wherever you like; it remembers its place.
 
@@ -35,8 +36,9 @@ on macOS (`presets.json` and `settings.json`).
 ## Uninstalling
 
 Close After Effects and run **Uninstall LazyTyper.bat** (Windows) or
-**Uninstall LazyTyper (macOS).command**. Your presets folder is left alone; delete it by hand if you
-want it gone. Rigs in your projects keep working without the panel (chapter 3).
+**Uninstall LazyTyper (macOS).command**. After removing the panel it asks *Delete your presets and
+settings as well?*: answer **N** (the default on macOS) to keep them for a later install, **Y** to
+delete that folder too. Rigs in your projects keep working without the panel (chapter 3).
 
 ## If something is wrong
 
