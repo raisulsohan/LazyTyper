@@ -83,6 +83,16 @@ Found by `tools/spikes/spikes.jsx` and later probes in After Effects 26.5:
   verification failure" boxes and refuse other tools' scripts.
 - Every host call runs with dialogs suppressed, in one undo group per action, and puts the
   layer selection back afterwards.
+- **Older rigs and presets keep their timing.** A new text control gets `since` and a value
+  that changes nothing (rig.js); `upgradeControls` (host, on Refresh, Bake and Unbake: they
+  write this version's engine) adds it in its place, and `upgradeValues` (panel) adds it to
+  saved presets. A meaning that changes for some values gets `oldFloor` (Fast: Repeated
+  Letters below 0 did nothing before). `npm test` replays 1.2.0's engine
+  (`tools/fixtures/engine-1.2.0.js`) against this one on old values, frame for frame.
+- **Presets are per frame rate.** A typing preset keeps the fps its frame counts were made at;
+  controls marked `frames` (Frames Per Character, Total Duration) are converted to the comp's
+  rate by the host (`forComp`) on Create and Apply, and by the panel (`valuesForFps`) for the
+  rhythm strip. Saved presets without `fps` (1.2.0 and earlier) count as 30 fps.
 
 ## Tests
 

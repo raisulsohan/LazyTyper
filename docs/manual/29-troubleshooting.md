@@ -41,6 +41,23 @@ changed), amber ones are warnings (the rest was done).
   (chapter 9). For a Stable rig, also after changing the text.
 - An offset is set on the cursor layer (chapter 27).
 
+### A preset types slower or faster than it says
+
+- **The comp's frame rate changed after rigging**: the rig's Frames Per Character counts frames.
+  Apply the preset again; it converts to the comp's frame rate (chapter 5).
+- **A value typed into Frames Per Character by hand** is not converted: 3 frames is slower at 24 fps
+  than at 60.
+- **Long texts with many line breaks or sentence ends** type below the preset's characters a second:
+  the panel measures on the selected text, so look at the line under the preset with the layer
+  selected.
+
+### A rig from an earlier version has fewer controls
+
+A rig made with LazyTyper 1.2.0 or earlier has no Slow: Last Character, Slow: Before Line Break,
+Slow: Same Finger, Fast: Capitals in a Row, Fast: Numbers in a Row or Slow/Fast: Empty Lines. It
+keeps typing exactly as it did. **Refresh** (or Bake, or Unbake) adds them in their places, at
+values that change nothing; set them afterwards, or apply a preset.
+
 ### The status line looks old
 
 The panel only asks After Effects about the selection while the pointer is over the panel, when the

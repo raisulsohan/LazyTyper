@@ -47,6 +47,9 @@ const allCases = [
   { id: "dynamic-box", type: "dynamic", text: "A paragraph that wraps across the box as each word is typed on screen.", box: [700, 400], just: "center" },
   { id: "stable-box", type: "stable", text: "Stable paragraph text keeps its layout while it types.", box: [700, 400], just: "right" },
   { id: "stable-lines", type: "stable", text: "First line\rSecond, line two\r\rFourth", box: null, just: "center" },
+  // Every newer control: capitals and digits in a row, a double key, same-finger pairs (ed, lo),
+  // a break before an empty line and a closing mark.
+  { id: "dynamic-runs", type: "dynamic", text: "NASA booked 2026 seats.\r\rSee you, Ed!", box: null, just: "left" },
   // Joined letters: After Effects counts units (grapheme clusters), not characters.
   { id: "dynamic-bengali", type: "dynamic", text: BENGALI, box: null, just: "left", font: "NirmalaUI", joined: true },
   { id: "stable-bengali", type: "stable", text: BENGALI, box: null, just: "left", font: "NirmalaUI", joined: true }
@@ -64,6 +67,36 @@ for (const c of cases) {
   c.expected = ev.map(([t, k]) => [Math.round(t / FD), k]);
 }
 
+// A rig made with 1.2.0: its engine in the expressions, none of the newer controls, and a
+// negative Fast: Repeated Letters (1.2.0 ignored it). It must keep its keystrokes through
+// Refresh and Bake. Its expressions are this version's with 1.2.0's engine in place of this one.
+const oldEngine = require("./fixtures/engine-1.2.0.js").lazyTyperRun;
+const upgradeText = "Hello NASA, see 2026 ideas!\r\rBye, bookkeeper.";
+const oldValues = {};
+for (const c of rig.TEXT_CONTROLS) if (!c.since && c.group !== "typing" && c.group !== "output") oldValues[c.name] = c.value;
+oldValues["Fast: Repeated Letters"] = -40;
+const upgrade = {
+  text: upgradeText,
+  values: oldValues,
+  since: rig.TEXT_CONTROLS.filter((c) => c.since).map((c) => c.name),
+  // To the layer's end (the test comp is 12 s), where Bake records to.
+  expected: oldEngine({
+    time: 12, fd: FD, start: 0, record: true, pauses: [], text: () => upgradeText,
+    num: (n) => (n === "Typing" ? 1 : n === "Start at Character" ? 0 : oldValues[n])
+  }).map(([t, k]) => [Math.round(t / FD), k])
+};
+// A 24 fps comp: a preset made at 30 fps is converted, so it types as many characters a second.
+const at24 = Object.assign({}, values, rig.valuesForFps(typing, 30, 24));
+const fps24 = {
+  text: "Converted to 24 fps, same speed.",
+  fpc: at24["Frames Per Character"],
+  vf: rig.TYPING_PRESETS[0].values,
+  vfFpc: rig.valuesForFps(rig.TYPING_PRESETS[0].values, 30, 24)["Frames Per Character"]
+};
+fps24.expected = lazyTyperRun({
+  time: 9.9, fd: 1 / 24, start: 0, record: true, pauses: [], num: (n) => at24[n], text: () => fps24.text
+}).map(([t, k]) => [Math.round(t * 24), k]);
+
 const expr = rig.expressionSet();
 const args = {
   textControls: rig.TEXT_CONTROLS,
@@ -73,6 +106,13 @@ const args = {
   expr,
   labels: rig.DEFAULT_KEY_LABELS
 };
+const withOldEngine = (e) => {
+  const now = rig.engineSource();
+  if (!e.includes(now)) throw new Error("engine source not found in an expression");
+  return e.replace(now, () => String(oldEngine).replace(/^[ \t]*\/\/.*(\r?\n)/gm, ""));
+};
+upgrade.stableCount = withOldEngine(expr.stableCount);
+upgrade.dynamicText = withOldEngine(expr.dynamicText);
 const aeRun = (script, result, timeout) =>
   execFileSync(process.execPath, [path.join(root, "tools", "ae-run.mjs"), script, result, String(timeout)], { stdio: "ignore" });
 
@@ -90,7 +130,7 @@ for (const engine of engines) {
   }
   const fr = JSON.parse(fs.readFileSync(fresh, "utf8"));
   if (fr.backup) console.log(`  (the open project was saved first to ${fr.backup})`);
-  fs.writeFileSync(path.join(dir, "fixture.json"), JSON.stringify({ root: root.replace(/\\/g, "/"), engine, args, cases }), "utf8");
+  fs.writeFileSync(path.join(dir, "fixture.json"), JSON.stringify({ root: root.replace(/\\/g, "/"), engine, args, cases, upgrade, fps24 }), "utf8");
   const resultFile = path.join(dir, `results-${engine}.json`);
   fs.rmSync(resultFile, { force: true });
   try {

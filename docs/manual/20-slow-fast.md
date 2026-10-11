@@ -24,6 +24,7 @@ one and a half times as fast.
 | Control | Applies to | Default |
 |---|---|---|
 | **Slow/Fast: Spaces** | spaces, tabs, no-break spaces, thin spaces and the ideographic space | 0 |
+| **Slow/Fast: Empty Lines** | each line break after the first in a row (an empty line), on top of Slow: New Line; it comes right after Spaces and is explained with the other line-break controls in [chapter 17](17-slow-after.md#a-line-break-in-three-stages) | 0 (Average: −50) |
 | **Slow/Fast: Same Hand** | a letter typed by the same hand as the letter before it, on a QWERTY keyboard: left hand `q w e r t a s d f g z x c v b`, right hand `y u i o p h j k l n m` (other characters never count) | 20 |
 | **Slow/Fast: Fatigue** | every character, more towards the end: none on the first, the whole value on the last, in proportion in between | 10 |
 
@@ -53,9 +54,12 @@ For "Typing a longer line slowly tires the hands out" (47 characters):
 - **Fatigue counts the whole text**, not the line: in a long paragraph the last line is the most
   tired one. It counts from the first character of the text, even when Start at Character skips some.
 - **Same Hand assumes QWERTY** and Latin letters; on other layouts or scripts it does nothing useful.
+  Two letters typed by the same finger are slowed once more by **Slow: Same Finger** (chapter 18).
 
 ## Related
 
-- [19. Fast: Repeated Letters, Common Pairs, Common Words and Word Momentum](19-fast.md)
+- [19. Fast: Repeated Letters, Capitals and Numbers in a Row, Common Pairs, Common Words and Word Momentum](19-fast.md):
+  Repeated Letters also goes both ways
+- [17. Slow: After Punctuation, Sentence End, Last Character and line breaks](17-slow-after.md): Empty Lines
 - [16. Slow: Capitals, Numbers, Symbols and Punctuation](16-slow-characters.md)
 - [5. Typing presets](05-typing-presets.md)

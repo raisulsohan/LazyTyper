@@ -341,6 +341,117 @@
     })();
     save();
 
+    /* Keystroke frames that differ from the expected ones (at most five), at fd seconds a frame. */
+    function mismatches(prop, expected, fd) {
+      var out = [];
+      var prev = 0;
+      for (var e = 0; e < expected.length && out.length < 5; e++) {
+        var f = expected[e][0];
+        var got = Math.round(prop.valueAtTime(f * fd, false));
+        if (got !== expected[e][1]) out.push("frame " + f + ": " + got + " not " + expected[e][1]);
+        if (f > 0) {
+          var before = Math.round(prop.valueAtTime((f - 1) * fd, false));
+          if (before !== prev) out.push("frame " + (f - 1) + ": " + before + " not " + prev);
+        }
+        prev = expected[e][1];
+      }
+      return out;
+    }
+
+    /* The rig's controls that LazyTyper knows, in Effect Controls order. */
+    function controlOrder(layer) {
+      var known = {};
+      var want = [];
+      for (var d = 0; d < args.textControls.length; d++) {
+        known[args.textControls[d].name] = true;
+        want.push(args.textControls[d].name);
+      }
+      var got = [];
+      var fxs = layer.property("ADBE Effect Parade");
+      for (var i = 1; i <= fxs.numProperties; i++) if (known[fxs.property(i).name]) got.push(fxs.property(i).name);
+      return { ok: got.join("|") === want.join("|"), got: got.join(", ") };
+    }
+
+    // A rig made with 1.2.0 (its engine, none of the newer controls, a negative Fast: Repeated
+    // Letters that 1.2.0 ignored) types as it did, and still does after Refresh (Stable) or Bake
+    // and Unbake (Dynamic), which bring its controls up to date.
+    (function () {
+      var U = fx.upgrade;
+      function oldRig(id, type) {
+        var l = makeText(comp, { id: id, text: U.text, box: null, just: "left" });
+        select(comp, l);
+        comp.time = 0;
+        var r = call("createRig", { type: type, cursor: false, typing: U.values });
+        l = comp.layer(id);
+        for (var i = 0; i < U.since.length; i++) l.property("ADBE Effect Parade").property(U.since[i]).remove();
+        if (type === "stable") LT.control(l, "Characters Shown").expression = U.stableCount;
+        else LT.sourceText(l).expression = U.dynamicText;
+        check(tag + id + ": made", r.ok && LT.control(l, "Fast: Repeated Letters").value === -40 && !LT.control(l, U.since[0]),
+          r.msg || LT.stringify(r));
+        return l;
+      }
+      var name = tag + "1.2.0 rig";
+      var sl = oldRig("old-stable", "stable");
+      var bad = mismatches(LT.control(sl, "Characters Shown"), U.expected, FD);
+      check(name + ": types with its own engine", !bad.length, bad.join("; "));
+      select(comp, sl);
+      var rf = call("refreshRig", {});
+      sl = comp.layer("old-stable");
+      check(name + ": refresh", rf.ok && !rf.problems.length, rf.msg || rf.problems.join(" | "));
+      var order = controlOrder(sl);
+      check(name + ": Refresh adds the newer controls in their places", order.ok, order.got);
+      var zero = true;
+      for (var i = 0; i < U.since.length; i++) if (LT.control(sl, U.since[i]).value !== 0) zero = false;
+      check(name + ": the newer controls change nothing", zero);
+      check(name + ": the ignored negative Repeated Letters becomes 0", LT.control(sl, "Fast: Repeated Letters").value === 0,
+        LT.control(sl, "Fast: Repeated Letters").value);
+      bad = mismatches(LT.control(sl, "Characters Shown"), U.expected, FD);
+      check(name + ": after Refresh, the same keystrokes", !bad.length, bad.join("; "));
+
+      var dl = oldRig("old-dynamic", "dynamic");
+      bad = mismatches(LT.control(dl, "Characters Shown"), U.expected, FD);
+      check(name + " (Dynamic): types with its own engine", !bad.length, bad.join("; "));
+      select(comp, dl);
+      var b = call("bake", {});
+      dl = comp.layer("old-dynamic");
+      var cs = LT.control(dl, "Characters Shown");
+      bad = mismatches(cs, U.expected, FD);
+      check(name + " (Dynamic): Bake records the same keystrokes", b.ok && cs.numKeys === U.expected.length && !bad.length,
+        b.msg || (cs.numKeys + " keys; " + bad.join("; ")));
+      var u = call("unbake", {});
+      dl = comp.layer("old-dynamic");
+      bad = mismatches(LT.control(dl, "Characters Shown"), U.expected, FD);
+      check(name + " (Dynamic): after Unbake, the same keystrokes", u.ok && !bad.length, u.msg || bad.join("; "));
+      order = controlOrder(dl);
+      check(name + " (Dynamic): Bake added the newer controls in their places", order.ok, order.got);
+    })();
+    save();
+
+    // A 24 fps comp: presets made at 30 fps are converted, so they type as many characters a second.
+    (function () {
+      var F = fx.fps24;
+      var name = tag + "24 fps";
+      var c24 = app.project.items.addComp("LazyTyper 24 fps", 1920, 1080, 1, 12, 24);
+      c24.openInViewer();
+      var l = makeText(c24, { id: "fps24", text: F.text, box: null, just: "left" });
+      select(c24, l);
+      c24.time = 0;
+      var r = call("createRig", { type: "stable", cursor: false, typingFps: 30 });
+      l = c24.layer("fps24");
+      var fpc = LT.control(l, "Frames Per Character");
+      check(name + ": create converts Frames Per Character", r.ok && fpc && Math.abs(fpc.value - F.fpc) < 1e-4,
+        r.msg || (fpc ? fpc.value + " not " + F.fpc : "no control"));
+      var bad = mismatches(LT.control(l, "Characters Shown"), F.expected, 1 / 24);
+      check(name + ": typing matches the Node engine", !bad.length, bad.join("; "));
+      var ap = call("applyValues", { kind: "typing", values: F.vf, fps: 30 });
+      check(name + ": Apply converts too", ap.ok && Math.abs(LT.control(l, "Frames Per Character").value - F.vfFpc) < 1e-4,
+        ap.msg || LT.control(l, "Frames Per Character").value + " not " + F.vfFpc);
+      var rv = call("readValues", { kind: "typing", keys: ["Frames Per Character"] });
+      check(name + ": Save as preset keeps the frame rate", rv.ok && rv.fps === 24, LT.stringify(rv));
+      comp.openInViewer();
+    })();
+    save();
+
     // Timeline helpers on the first rig.
     var first = comp.layer(fx.cases[0].id);
     select(comp, first);

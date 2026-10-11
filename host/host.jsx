@@ -268,17 +268,72 @@ var LT = (function () {
     return prop;
   }
 
-  /* Adds every missing control in order; returns how many it added. */
+  /*
+   * Adds every missing control, each right after the control before it in defs (so a Refresh
+   * puts a newer control where a new rig has it); returns how many it added. Moving an effect
+   * invalidates the others' objects, so effects are looked up by name again after each one.
+   */
   function ensureControls(layer, defs, values, skip) {
     var added = 0;
+    var prev = null;
     for (var i = 0; i < defs.length; i++) {
       var d = defs[i];
       if (skip && skip(d)) continue;
-      if (effectNamed(layer, d.name)) continue;
-      addControl(layer, d, values && values[d.name] !== undefined ? values[d.name] : undefined);
-      added++;
+      if (!effectNamed(layer, d.name)) {
+        addControl(layer, d, values && values[d.name] !== undefined ? values[d.name] : undefined);
+        added++;
+        var before = prev ? effectNamed(layer, prev) : null;
+        var fx = effectNamed(layer, d.name);
+        if (before && fx.propertyIndex !== before.propertyIndex + 1) {
+          fx.moveTo(before.propertyIndex < fx.propertyIndex ? before.propertyIndex + 1 : before.propertyIndex);
+        }
+      }
+      prev = d.name;
     }
     return added;
+  }
+
+  /*
+   * Brings a rig's text controls up to date before newer expressions run on it: adds the missing
+   * ones (a control added in a later version comes at a value that changes nothing, rig.js
+   * "since") and, on a rig that has none of those, raises values below a control's oldFloor,
+   * which the older expressions ignored. Keyframes too; an expression on a control is left alone.
+   */
+  function upgradeControls(layer, defs) {
+    var older = true;
+    var i;
+    for (i = 0; i < defs.length; i++) if (defs[i].since && effectNamed(layer, defs[i].name)) older = false;
+    ensureControls(layer, defs, null);
+    if (!older) return;
+    for (i = 0; i < defs.length; i++) {
+      var d = defs[i];
+      if (d.oldFloor === undefined) continue;
+      var p = control(layer, d.name);
+      if (!p) continue;
+      if (p.numKeys > 0) {
+        for (var k = 1; k <= p.numKeys; k++) if (p.keyValue(k) < d.oldFloor) p.setValueAtKey(k, d.oldFloor);
+      } else if (p.value < d.oldFloor) {
+        p.setValue(d.oldFloor);
+      }
+    }
+  }
+
+  /*
+   * Preset values for this comp: a control that counts frames (rig.js "frames") is scaled from
+   * the preset's frame rate (fromFps; none means 30) to the comp's, so a preset types as many
+   * characters a second at any frame rate. The same sum as rig.js valuesForFps.
+   */
+  function forComp(defs, values, fromFps, fps) {
+    if (!values) return values;
+    var out = {};
+    for (var k in values) if (values.hasOwnProperty(k)) out[k] = values[k];
+    var from = fromFps > 0 ? fromFps : 30;
+    if (!(fps > 0) || Math.abs(fps - from) < 1e-6) return out;
+    for (var i = 0; i < defs.length; i++) {
+      var n = defs[i].name;
+      if (defs[i].frames && typeof out[n] === "number") out[n] = Math.round(out[n] * fps / from * 10000) / 10000;
+    }
+    return out;
   }
 
   /* ---------------- transforms ---------------- */
@@ -1119,7 +1174,7 @@ var LT = (function () {
           var m = measureMetrics(layer, comp.time);
           var stable = a.type === "stable" ? measureStable(layer, m) : null;
           var guide = a.type === "dynamic" ? makeGuide(layer, a.expr) : null;
-          ensureControls(layer, a.textControls, a.typing);
+          ensureControls(layer, a.textControls, forComp(a.textControls, a.typing, a.typingFps, comp.frameRate));
           var cs = control(layer, COUNT);
           if (a.type === "stable") {
             cs.expression = a.expr.stableCount;
@@ -1159,7 +1214,7 @@ var LT = (function () {
         var layer = list[i];
         var type = rigType(layer);
         if (!type) continue;
-        ensureControls(layer, a.textControls, null);
+        upgradeControls(layer, a.textControls);
         var cs = control(layer, COUNT);
         var baked = cs.numKeys > 0 && cs.expression === "";
         var st = sourceText(layer);
@@ -1256,6 +1311,8 @@ var LT = (function () {
           skipped.push(layer.name + " is already baked");
           continue;
         }
+        upgradeControls(layer, a.textControls);
+        cs = control(layer, COUNT);
         var st = sourceText(layer);
         var keep = st.expression;
         var log;
@@ -1322,6 +1379,7 @@ var LT = (function () {
         var layer = list[i];
         var type = rigType(layer);
         if (!type) continue;
+        upgradeControls(layer, a.textControls);
         /* Source Text stops reading Characters Shown before that reads Source Text again. */
         if (type === "dynamic") sourceText(layer).expression = a.expr.dynamicText;
         var cs = control(layer, COUNT);
@@ -1349,11 +1407,12 @@ var LT = (function () {
         var target = a.kind === "cursor" ? findCursor(layer) : layer;
         if (!target) continue;
         var defs = a.kind === "cursor" ? a.cursorControls : a.textControls;
+        var values = forComp(defs, a.values, a.fps, comp.frameRate);
         for (var d = 0; d < defs.length; d++) {
           var def = defs[d];
-          if (a.values[def.name] === undefined) continue;
+          if (values[def.name] === undefined) continue;
           var p = control(target, def.name);
-          if (p) setNow(p, controlValue(def, a.values[def.name]), comp.time);
+          if (p) setNow(p, controlValue(def, values[def.name]), comp.time);
         }
         done.push(layer.name);
       }
@@ -1379,7 +1438,7 @@ var LT = (function () {
         var v = p.valueAtTime(comp.time, false);
         values[a.keys[k]] = (v instanceof Array) ? [v[0], v[1], v[2]] : Math.round(v * 1000) / 1000;
       }
-      return { ok: true, values: values, layer: layer.name };
+      return { ok: true, values: values, layer: layer.name, fps: Math.round(comp.frameRate * 1000) / 1000 };
     }
     fail(a.kind === "cursor" ? "Select a text layer whose rig has a cursor." : "Select a text layer with a LazyTyper rig.");
   }
@@ -1544,6 +1603,7 @@ var LT = (function () {
     cursorTable: cursorTable,
     unitBoxes: unitBoxes,
     joinsPrevious: joinsPrevious,
+    forComp: forComp,
     measureMetrics: measureMetrics,
     sourceText: sourceText,
     control: control,

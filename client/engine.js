@@ -44,6 +44,7 @@ function lazyTyperRun(io) {
   var WORDS = ",the,and,to,of,a,in,is,it,you,that,for,on,with,as,was,i,be,at,this,have,are,he,she,we,they,but,not,or,my,your,so,if,do,can,will,just,all,an,by,from,";
   var LEFT = "qwertasdfgzxcvb";
   var RIGHT = "yuiophjklnm";
+  var FINGERS = "qaz wsx edc rfvtgb yhnujm ik ol p";
 
   function isNL(c) { return c === "\r" || c === "\n" || c === "\u0003" || c === "\u2028" || c === "\u2029"; }
   function isSpace(c) { return c === " " || c === "\t" || c === "\u00A0" || c === "\u3000" || c === "\u2009"; }
@@ -61,6 +62,19 @@ function lazyTyperRun(io) {
     if (LEFT.indexOf(c) >= 0) return 0;
     if (RIGHT.indexOf(c) >= 0) return 1;
     return -1;
+  }
+  // QWERTY touch typing: which finger types a lower-case letter (FINGERS lists each finger's
+  // letters, left little finger first), or -1.
+  function finger(c) {
+    if (c === "" || c === " ") return -1;
+    var at = FINGERS.indexOf(c);
+    return at < 0 ? -1 : FINGERS.substring(0, at).split(" ").length;
+  }
+  // The last character of s that is not a space or line break, or -1.
+  function lastKey(s) {
+    var k = s.length - 1;
+    while (k >= 0 && (isSpace(s.charAt(k)) || isNL(s.charAt(k)))) k--;
+    return k;
   }
   function rnd(i, seed) {
     var x = Math.sin(i * 12.9898 + seed * 78.233 + 1.618) * 43758.5453;
@@ -88,6 +102,23 @@ function lazyTyperRun(io) {
       if (v > 0) w *= 1 + v;
       else if (v < 0) w /= 1 - v;
     }
+    // A Fast: control that also goes the other way: below 0 it slows down.
+    function fastOrSlow(name) {
+      var v = num(name, t) / 100;
+      if (v > 0) w /= 1 + v;
+      else if (v < 0) w *= 1 - v;
+    }
+    // A Slow: control on a character that follows one of its kind (the A of NASA, the 0 of
+    // 2026): the "in a row" control takes that share (0 to 100 %) of the slow-down away.
+    function slowInRow(name, inRow, follows) {
+      var v = num(name, t) / 100;
+      if (!(v > 0)) return;
+      if (follows) {
+        var off = clamp(num(inRow, t) / 100, 0, 1);
+        if (off > 0) v *= 1 - off;
+      }
+      w *= 1 + v;
+    }
     var ws = i, we = i;
     if (isWord(c)) {
       while (ws > 0 && isWord(s.charAt(ws - 1))) ws--;
@@ -95,24 +126,31 @@ function lazyTyperRun(io) {
     }
     var wordLen = we - ws;
     var inWord = i - ws;
+    var lp = p.toLowerCase();
 
-    if (isLetter(c) && c !== lc) slow("Slow: Capitals", 1);
-    if (isDigit(c)) slow("Slow: Numbers", 1);
+    if (isLetter(c) && c !== lc) slowInRow("Slow: Capitals", "Fast: Capitals in a Row", isLetter(p) && p !== lp);
+    if (isDigit(c)) slowInRow("Slow: Numbers", "Fast: Numbers in a Row", isDigit(p));
     if (isSym(c)) slow("Slow: Symbols", 1);
     if (isPunct(c)) slow("Slow: Punctuation", 1);
     if (p !== "" && AFTER.indexOf(p) >= 0) slow("Slow: After Punctuation", 1);
     if (p !== "" && ENDS.indexOf(p) >= 0) slow("Slow: Sentence End", 1);
+    if (i === lastKey(s)) slow("Slow: Last Character", 1);
+    // A line break in three stages: the wait before Return, the wait after it (before the
+    // next line's first key), and each Return more in a row (an empty line).
+    if (isNL(c) && !isNL(p)) slow("Slow: Before Line Break", 1);
     if (p !== "" && isNL(p)) slow("Slow: New Line", 1);
     if (isWord(c) && inWord === 0) slow("Slow: Word Start", 1);
     if (isLetter(c) && wordLen > 6) slow("Slow: Long Words", Math.min(1, (wordLen - 6) / 6));
     if ("qzxjkv".indexOf(lc) >= 0 && lc !== "") slow("Slow: Rare Letters", 1);
+    if (isLetter(c) && isLetter(p) && lc !== lp && finger(lc) >= 0 && finger(lc) === finger(lp)) slow("Slow: Same Finger", 1);
 
-    if (isLetter(c) && p !== "" && lc === p.toLowerCase()) fast("Fast: Repeated Letters", 1);
+    if (isLetter(c) && p !== "" && lc === lp) fastOrSlow("Fast: Repeated Letters");
     if (isLetter(c) && isLetter(p) && PAIRS.indexOf("," + (p + c).toLowerCase() + ",") >= 0) fast("Fast: Common Pairs", 1);
     if (isWord(c) && WORDS.indexOf("," + s.substring(ws, we).toLowerCase() + ",") >= 0) fast("Fast: Common Words", 1);
     if (isLetter(c) && inWord >= 2) fast("Fast: Word Momentum", Math.min(1, (inWord - 1) / 4));
 
     if (isSpace(c)) either("Slow/Fast: Spaces", 1);
+    if (isNL(c) && p !== "" && isNL(p)) either("Slow/Fast: Empty Lines", 1);
     if (isLetter(c) && isLetter(p) && hand(lc) >= 0 && hand(lc) === hand(p.toLowerCase())) either("Slow/Fast: Same Hand", 1);
     if (s.length > 1) either("Slow/Fast: Fatigue", i / (s.length - 1));
 

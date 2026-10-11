@@ -170,6 +170,13 @@ await panel.evaluate("document.getElementById('saveTypingName').value = 'UI test
 await click("btnSaveTypingOk");
 let t8 = await waitToast();
 check("save typing preset", /Saved|Updated/.test(t8), t8);
+// The saved preset keeps the comp's frame rate (30 here) and every typing control.
+const savedFile = path.join(process.env.APPDATA, "LazyTyper", "presets.json");
+const mine = JSON.parse(fs.readFileSync(savedFile, "utf8")).typing.find((p) => p.name === "UI test preset");
+check("saved preset keeps its frame rate and the newer controls", mine && mine.fps === 30 &&
+  mine.values["Slow: Same Finger"] !== undefined && mine.values["Fast: Capitals in a Row"] !== undefined, JSON.stringify(mine));
+const rate = await panel.evaluate("document.getElementById('presetRate').textContent");
+check("the panel shows characters a second", /^[\d.]+ characters a second · [\d.]+ frames per character at 30 fps$/.test(rate), rate);
 const fpc = await panel.evaluate("JSON.stringify((function(){ var o = document.getElementById('typingPreset'); return o.value; })())");
 check("saved preset selected", /UI test preset/.test(fpc), fpc);
 await click("btnDeleteTyping");

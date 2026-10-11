@@ -30,7 +30,7 @@ show a grey break where they do.
 ## Part 2. The panel, card by card
 
 4. [Creating a rig](04-create-rig.md): rig type, typing style, cursor, one layer or several
-5. [Typing presets](05-typing-presets.md): Apply, the rhythm strip, Save as preset, Delete
+5. [Typing presets](05-typing-presets.md): Apply, the rhythm strip, Save as preset, Delete, frame rates
 6. [Start typing and Stop typing](06-start-stop.md)
 7. [Pauses](07-pauses.md): Add pause, Pause markers, dragging their end
 8. [Erase](08-erase.md): everything or the last few characters, over a number of frames, and retyping
@@ -45,9 +45,9 @@ show a grey break where they do.
 14. [Speed Mode, Frames Per Character and Total Duration](14-speed.md)
 15. [Variance and Random Seed](15-variance-seed.md)
 16. [Slow: Capitals, Numbers, Symbols and Punctuation](16-slow-characters.md)
-17. [Slow: After Punctuation, Sentence End and New Line](17-slow-after.md)
-18. [Slow: Word Start, Long Words and Rare Letters](18-slow-words.md)
-19. [Fast: Repeated Letters, Common Pairs, Common Words and Word Momentum](19-fast.md)
+17. [Slow: After Punctuation, Sentence End, Last Character and line breaks](17-slow-after.md): Before Line Break, New Line, Empty Lines
+18. [Slow: Word Start, Long Words, Rare Letters and Same Finger](18-slow-words.md)
+19. [Fast: Repeated Letters, Capitals and Numbers in a Row, Common Pairs, Common Words and Word Momentum](19-fast.md)
 20. [Slow/Fast: Spaces, Same Hand and Fatigue](20-slow-fast.md)
 21. [Characters Shown](21-characters-shown.md)
 

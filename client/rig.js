@@ -14,13 +14,20 @@
   var VERSION = "1.2.0";
   var TAG = "LazyTyper";
 
-  /* Controls on the text layer, in the order they appear in Effect Controls. */
+  /*
+   * Controls on the text layer, in the order they appear in Effect Controls.
+   *   frames   the value counts frames: a preset made at one frame rate is converted to the comp's
+   *   since    added in that version, with a value that changes nothing, so Refresh can add it to
+   *            an older rig and the rig keeps its timing
+   *   oldFloor rigs and presets made before the "since" controls ignored values below this; they
+   *            are raised to it when such a rig or preset is brought up to date
+   */
   var TEXT_CONTROLS = [
     { name: "Typing", type: "checkbox", value: 1, group: "typing" },
     { name: "Start at Character", type: "slider", value: 0, group: "typing" },
     { name: "Speed Mode", type: "dropdown", items: ["Frames Per Character", "Total Duration"], value: 1, group: "speed" },
-    { name: "Frames Per Character", type: "slider", value: 3, group: "speed" },
-    { name: "Total Duration", type: "slider", value: 90, group: "speed" },
+    { name: "Frames Per Character", type: "slider", value: 3, group: "speed", frames: true },
+    { name: "Total Duration", type: "slider", value: 90, group: "speed", frames: true },
     { name: "Variance", type: "slider", value: 35, group: "speed" },
     { name: "Random Seed", type: "slider", value: 1, group: "speed" },
     { name: "Slow: Capitals", type: "slider", value: 60, group: "slow" },
@@ -29,15 +36,21 @@
     { name: "Slow: Punctuation", type: "slider", value: 40, group: "slow" },
     { name: "Slow: After Punctuation", type: "slider", value: 250, group: "slow" },
     { name: "Slow: Sentence End", type: "slider", value: 500, group: "slow" },
+    { name: "Slow: Last Character", type: "slider", value: 0, group: "slow", since: "1.3.0" },
+    { name: "Slow: Before Line Break", type: "slider", value: 0, group: "slow", since: "1.3.0" },
     { name: "Slow: New Line", type: "slider", value: 400, group: "slow" },
     { name: "Slow: Word Start", type: "slider", value: 50, group: "slow" },
     { name: "Slow: Long Words", type: "slider", value: 30, group: "slow" },
     { name: "Slow: Rare Letters", type: "slider", value: 40, group: "slow" },
-    { name: "Fast: Repeated Letters", type: "slider", value: 30, group: "fast" },
+    { name: "Slow: Same Finger", type: "slider", value: 0, group: "slow", since: "1.3.0" },
+    { name: "Fast: Repeated Letters", type: "slider", value: 30, group: "fast", oldFloor: 0 },
+    { name: "Fast: Capitals in a Row", type: "slider", value: 0, group: "fast", since: "1.3.0" },
+    { name: "Fast: Numbers in a Row", type: "slider", value: 0, group: "fast", since: "1.3.0" },
     { name: "Fast: Common Pairs", type: "slider", value: 30, group: "fast" },
     { name: "Fast: Common Words", type: "slider", value: 20, group: "fast" },
     { name: "Fast: Word Momentum", type: "slider", value: 20, group: "fast" },
     { name: "Slow/Fast: Spaces", type: "slider", value: 0, group: "either" },
+    { name: "Slow/Fast: Empty Lines", type: "slider", value: 0, group: "either", since: "1.3.0" },
     { name: "Slow/Fast: Same Hand", type: "slider", value: 20, group: "either" },
     { name: "Slow/Fast: Fatigue", type: "slider", value: 10, group: "either" },
     { name: "Characters Shown", type: "slider", value: 0, group: "output" }
@@ -76,25 +89,105 @@
     "Width", "Top", "Bottom", "Roundness", "Individual Corners", "Top Left", "Top Right", "Bottom Right", "Bottom Left",
     "X Offset", "Y Offset"];
 
-  function preset(fpc, variance, slow, fast, either) {
-    return {
-      "Speed Mode": 1, "Frames Per Character": fpc, "Total Duration": 90, "Variance": variance, "Random Seed": 1,
-      "Slow: Capitals": slow[0], "Slow: Numbers": slow[1], "Slow: Symbols": slow[2], "Slow: Punctuation": slow[3],
-      "Slow: After Punctuation": slow[4], "Slow: Sentence End": slow[5], "Slow: New Line": slow[6],
-      "Slow: Word Start": slow[7], "Slow: Long Words": slow[8], "Slow: Rare Letters": slow[9],
-      "Fast: Repeated Letters": fast[0], "Fast: Common Pairs": fast[1], "Fast: Common Words": fast[2],
-      "Fast: Word Momentum": fast[3],
-      "Slow/Fast: Spaces": either[0], "Slow/Fast: Same Hand": either[1], "Slow/Fast: Fatigue": either[2]
-    };
+  /* A typing preset's values: the base speed, Variance and every Slow, Fast and Slow/Fast control. */
+  function preset(fpc, variance, controls) {
+    var v = { "Speed Mode": 1, "Frames Per Character": fpc, "Total Duration": 90, "Variance": variance, "Random Seed": 1 };
+    for (var k in controls) if (controls.hasOwnProperty(k)) v[k] = controls[k];
+    return v;
   }
 
+  /*
+   * A typing preset keeps the frame rate its frame counts were made at (fps); applying it to a
+   * comp at another rate converts them, so it types as many characters a second at any rate.
+   * The built-in ones were tuned at 30 fps: about 14, 7 and 2.5 characters a second (a very
+   * fast typist, an everyday one sped up a little for the screen, and two fingers).
+   */
   var TYPING_PRESETS = [
-    /* At 30 fps: about 14, 7 and 2.5 characters a second (a very fast typist, an everyday
-       one sped up a little for the screen, and two fingers). */
-    { name: "Very Fast", builtIn: true, values: preset(2.2, 15, [30, 30, 60, 20, 150, 300, 250, 20, 0, 10], [40, 40, 30, 30], [-20, 10, 0]) },
-    { name: "Average", builtIn: true, values: preset(3, 35, [60, 60, 120, 40, 250, 500, 400, 50, 30, 40], [30, 30, 20, 20], [0, 20, 10]) },
-    { name: "Hunt & Peck", builtIn: true, values: preset(6, 60, [150, 120, 250, 80, 300, 600, 500, 100, 60, 100], [10, 10, 20, 0], [-30, 0, 20]) }
+    { name: "Very Fast", builtIn: true, fps: 30, values: preset(2.05, 15, {
+      "Slow: Capitals": 30, "Slow: Numbers": 30, "Slow: Symbols": 60, "Slow: Punctuation": 20,
+      "Slow: After Punctuation": 150, "Slow: Sentence End": 300, "Slow: Last Character": 100,
+      "Slow: Before Line Break": 50, "Slow: New Line": 250, "Slow: Word Start": 20, "Slow: Long Words": 0,
+      "Slow: Rare Letters": 10, "Slow: Same Finger": 40,
+      "Fast: Repeated Letters": -25, "Fast: Capitals in a Row": 60, "Fast: Numbers in a Row": 50,
+      "Fast: Common Pairs": 40, "Fast: Common Words": 30, "Fast: Word Momentum": 30,
+      "Slow/Fast: Spaces": -20, "Slow/Fast: Empty Lines": -60, "Slow/Fast: Same Hand": 10, "Slow/Fast: Fatigue": 0
+    }) },
+    { name: "Average", builtIn: true, fps: 30, values: preset(2.9, 35, {
+      "Slow: Capitals": 60, "Slow: Numbers": 60, "Slow: Symbols": 120, "Slow: Punctuation": 40,
+      "Slow: After Punctuation": 250, "Slow: Sentence End": 500, "Slow: Last Character": 150,
+      "Slow: Before Line Break": 60, "Slow: New Line": 400, "Slow: Word Start": 50, "Slow: Long Words": 30,
+      "Slow: Rare Letters": 40, "Slow: Same Finger": 20,
+      "Fast: Repeated Letters": 15, "Fast: Capitals in a Row": 50, "Fast: Numbers in a Row": 40,
+      "Fast: Common Pairs": 30, "Fast: Common Words": 20, "Fast: Word Momentum": 20,
+      "Slow/Fast: Spaces": 0, "Slow/Fast: Empty Lines": -50, "Slow/Fast: Same Hand": 20, "Slow/Fast: Fatigue": 10
+    }) },
+    { name: "Hunt & Peck", builtIn: true, fps: 30, values: preset(6, 60, {
+      "Slow: Capitals": 150, "Slow: Numbers": 120, "Slow: Symbols": 250, "Slow: Punctuation": 80,
+      "Slow: After Punctuation": 300, "Slow: Sentence End": 600, "Slow: Last Character": 100,
+      "Slow: Before Line Break": 100, "Slow: New Line": 500, "Slow: Word Start": 100, "Slow: Long Words": 60,
+      "Slow: Rare Letters": 100, "Slow: Same Finger": 0,
+      "Fast: Repeated Letters": 60, "Fast: Capitals in a Row": 30, "Fast: Numbers in a Row": 40,
+      "Fast: Common Pairs": 10, "Fast: Common Words": 20, "Fast: Word Momentum": 0,
+      "Slow/Fast: Spaces": -30, "Slow/Fast: Empty Lines": -40, "Slow/Fast: Same Hand": 0, "Slow/Fast: Fatigue": 20
+    }) }
   ];
+
+  /* The frame rate assumed for a saved preset that does not say (saved before presets kept one). */
+  var PRESET_FPS = 30;
+
+  /*
+   * A typing preset's values for a comp at fps frames a second: the controls that count frames
+   * (Frames Per Character, Total Duration) scaled from the preset's own rate.
+   */
+  function valuesForFps(values, fromFps, fps) {
+    var out = {};
+    var k;
+    for (k in values) if (values.hasOwnProperty(k)) out[k] = values[k];
+    var from = fromFps > 0 ? fromFps : PRESET_FPS;
+    if (!(fps > 0) || Math.abs(fps - from) < 1e-6) return out;
+    for (var i = 0; i < TEXT_CONTROLS.length; i++) {
+      var d = TEXT_CONTROLS[i];
+      if (d.frames && typeof out[d.name] === "number") out[d.name] = Math.round(out[d.name] * fps / from * 10000) / 10000;
+    }
+    return out;
+  }
+
+  /*
+   * Typing values read from an older rig or preset lack the "since" controls: adds them at the
+   * values that change nothing and, when none of them was there, raises oldFloor controls, so the
+   * values type as they did. Returns true if anything changed.
+   */
+  function upgradeValues(values) {
+    var i, d;
+    var older = true;
+    for (i = 0; i < TEXT_CONTROLS.length; i++) if (TEXT_CONTROLS[i].since && values[TEXT_CONTROLS[i].name] !== undefined) older = false;
+    var changed = false;
+    for (i = 0; i < TEXT_CONTROLS.length; i++) {
+      d = TEXT_CONTROLS[i];
+      if (d.since && values[d.name] === undefined) {
+        values[d.name] = d.value;
+        changed = true;
+      } else if (older && d.oldFloor !== undefined && values[d.name] < d.oldFloor) {
+        values[d.name] = d.oldFloor;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /*
+   * Brings a saved typing preset up to date; returns true if it changed. One without a frame rate
+   * was saved before presets kept one (1.2.0 and earlier): it gets PRESET_FPS.
+   */
+  function upgradeTypingPreset(p) {
+    var changed = false;
+    if (!p.values) p.values = {};
+    if (!(p.fps > 0)) {
+      p.fps = PRESET_FPS;
+      changed = true;
+    }
+    return upgradeValues(p.values) || changed;
+  }
 
   function cursorPreset(width, top, bottom, round) {
     return {
@@ -443,6 +536,10 @@
     CURSOR_PRESET_KEYS: CURSOR_PRESET_KEYS,
     TYPING_PRESETS: TYPING_PRESETS,
     CURSOR_PRESETS: CURSOR_PRESETS,
+    PRESET_FPS: PRESET_FPS,
+    valuesForFps: valuesForFps,
+    upgradeValues: upgradeValues,
+    upgradeTypingPreset: upgradeTypingPreset,
     LABELS: LABELS,
     LABEL_HEX: LABEL_HEX,
     DEFAULT_KEY_LABELS: DEFAULT_KEY_LABELS,

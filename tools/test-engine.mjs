@@ -174,10 +174,192 @@ for (const p of rig.TYPING_PRESETS) {
 {
   const names = new Set(rig.TEXT_CONTROLS.map((c) => c.name));
   for (const p of rig.TYPING_PRESETS) for (const k of Object.keys(p.values)) check(`preset key ${k}`, names.has(k));
+  for (const p of rig.TYPING_PRESETS) {
+    const missing = rig.TYPING_PRESET_KEYS.filter((k) => p.values[k] === undefined);
+    check(`${p.name} sets every typing control`, !missing.length, missing.join(", "));
+    check(`${p.name} says its frame rate`, p.fps === 30, p.fps);
+  }
   const cnames = new Set(rig.CURSOR_CONTROLS.map((c) => c.name));
   for (const p of rig.CURSOR_PRESETS) for (const k of Object.keys(p.values)) check(`cursor preset key ${k}`, cnames.has(k));
   const src = rig.engineSource();
-  for (const m of src.matchAll(/(?:slow|fast|either|num)\("([^"]+)"/g)) check(`engine control ${m[1]}`, names.has(m[1]));
+  const read = new Set([...src.matchAll(/"((?:Slow|Fast|Slow\/Fast): [^"]+|Typing|Start at Character|Speed Mode|Frames Per Character|Total Duration|Variance|Random Seed)"/g)].map((m) => m[1]));
+  for (const n of read) check(`engine control ${n}`, names.has(n));
+  for (const c of rig.TEXT_CONTROLS) if (c.group !== "output") check(`the engine reads ${c.name}`, read.has(c.name));
+  // A control added later changes nothing at its default, so Refresh can add it to an older rig.
+  for (const c of rig.TEXT_CONTROLS) if (c.since) check(`${c.name} defaults to no effect`, c.value === 0, c.value);
+}
+
+// 15. A rig or preset made with 1.2.0 types exactly as it did, frame for frame, once Refresh has
+// added the newer controls at their defaults (tools/fixtures/engine-1.2.0.js is 1.2.0's engine).
+{
+  const old = require("./fixtures/engine-1.2.0.js").lazyTyperRun;
+  const OLD_KEYS = rig.TEXT_CONTROLS.filter((c) => !c.since).map((c) => c.name);
+  const oldPreset = (fpc, variance, slow, fast, either) => ({
+    "Speed Mode": 1, "Frames Per Character": fpc, "Total Duration": 90, "Variance": variance, "Random Seed": 1,
+    "Slow: Capitals": slow[0], "Slow: Numbers": slow[1], "Slow: Symbols": slow[2], "Slow: Punctuation": slow[3],
+    "Slow: After Punctuation": slow[4], "Slow: Sentence End": slow[5], "Slow: New Line": slow[6],
+    "Slow: Word Start": slow[7], "Slow: Long Words": slow[8], "Slow: Rare Letters": slow[9],
+    "Fast: Repeated Letters": fast[0], "Fast: Common Pairs": fast[1], "Fast: Common Words": fast[2],
+    "Fast: Word Momentum": fast[3],
+    "Slow/Fast: Spaces": either[0], "Slow/Fast: Same Hand": either[1], "Slow/Fast: Fatigue": either[2]
+  });
+  // The 1.2.0 built-in presets, as 1.2.0 shipped them.
+  const OLD_PRESETS = [
+    oldPreset(2.2, 15, [30, 30, 60, 20, 150, 300, 250, 20, 0, 10], [40, 40, 30, 30], [-20, 10, 0]),
+    oldPreset(3, 35, [60, 60, 120, 40, 250, 500, 400, 50, 30, 40], [30, 30, 20, 20], [0, 20, 10]),
+    oldPreset(6, 60, [150, 120, 250, 80, 300, 600, 500, 100, 60, 100], [10, 10, 20, 0], [-30, 0, 20])
+  ];
+  let seed = 7;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const pick = (lo, hi) => Math.round((lo + rand() * (hi - lo)) * 10) / 10;
+  const randomSet = () => {
+    const v = {};
+    for (const k of OLD_KEYS) {
+      const c = rig.TEXT_CONTROLS.find((d) => d.name === k);
+      v[k] = c.value;
+      if (/^Slow:/.test(k)) v[k] = pick(-20, 600);
+      if (/^Fast:/.test(k)) v[k] = pick(-150, 200);
+      if (/^Slow\/Fast:/.test(k)) v[k] = pick(-90, 200);
+    }
+    v["Frames Per Character"] = pick(0.3, 7);
+    v.Variance = pick(0, 100);
+    v["Random Seed"] = Math.round(pick(0, 50));
+    v["Total Duration"] = pick(10, 200);
+    v["Speed Mode"] = rand() < 0.3 ? 2 : 1;
+    return v;
+  };
+  const sets = [...OLD_PRESETS, Object.fromEntries(rig.TEXT_CONTROLS.filter((c) => !c.since).map((c) => [c.name, c.value]))];
+  for (let r = 0; r < 12; r++) sets.push(randomSet());
+  const TEXTS = [
+    "Hello there, this is a typing test. It should feel natural!",
+    "NASA and the ESA launched 2026 missions; call 555-0199 or EMAIL us.",
+    "Dear team,\rThe meeting moved to 3 PM.\r\r\rThanks! ",
+    "Committee, coffee, bookkeeper: ed de ce un my tr fr ol ki.\r",
+    "আমি বাংলায় টাইপ করি। এটাও চলে।",
+    "\rStarts with a break and ends with dots...  "
+  ];
+  let bad = [];
+  let runs = 0;
+  for (const [si, base] of sets.entries()) {
+    // The rig after Refresh: the 1.2.0 values, the newer controls at their defaults, and
+    // anything 1.2.0 ignored raised to what it acted as (rig.js upgradeValues; host.jsx does the same).
+    const now = Object.assign({}, base);
+    rig.upgradeValues(now);
+    for (const c of rig.TEXT_CONTROLS) if (now[c.name] === undefined) now[c.name] = c.value;
+    const before = Object.assign({}, base, { Typing: 1, "Start at Character": 0, "Characters Shown": 0 });
+    for (const text of TEXTS) {
+      for (const fps of [24, 30, 60]) {
+        for (const variant of ["plain", "paused", "keyed"]) {
+          const extra = { fd: 1 / fps, record: true };
+          const a = Object.assign({}, before);
+          const b = Object.assign({}, now, { Typing: 1, "Start at Character": 0 });
+          if (variant === "paused") extra.pauses = [[0.4, 0.9], [2, 2.5]];
+          if (variant === "keyed") {
+            // Typing off 1-1.5 s, back on; Start at Character dropping 3 while off (an erase).
+            const typing = (t) => (t >= 1 && t < 1.5 ? 0 : 1);
+            const startAt = (t) => (t < 1.1 ? 0 : t >= 1.3 ? -3 : -Math.round((t - 1.1) / 0.2 * 3));
+            a.Typing = b.Typing = typing;
+            a["Start at Character"] = b["Start at Character"] = startAt;
+          }
+          const ea = old(io(20, a, text, extra));
+          const eb = lazyTyperRun(io(20, b, text, extra));
+          runs++;
+          if (JSON.stringify(ea) !== JSON.stringify(eb) && bad.length < 4) bad.push(`set ${si}, ${fps} fps, ${variant}, "${text.slice(0, 16)}"`);
+        }
+      }
+    }
+  }
+  check(`1.2.0 rig timing unchanged (${runs} takes, same keystroke frames)`, !bad.length, bad.join("; "));
+
+  // Saved presets from 1.2.0: no frame rate, no newer controls; brought up to date, they type as before.
+  const saved = { name: "Mine", values: Object.assign({}, OLD_PRESETS[1], { "Fast: Repeated Letters": -40 }) };
+  check("old preset: upgraded", rig.upgradeTypingPreset(saved) === true && saved.fps === 30);
+  check("old preset: newer controls added at no effect", rig.TEXT_CONTROLS.filter((c) => c.since).every((c) => saved.values[c.name] === 0));
+  check("old preset: a negative Repeated Letters (ignored by 1.2.0) becomes 0", saved.values["Fast: Repeated Letters"] === 0);
+  check("old preset: upgrading twice changes nothing", rig.upgradeTypingPreset(saved) === false);
+  const text = "Hello, NASA! See you at 10:30.\rBye.";
+  const ea = old(io(20, Object.assign({}, OLD_PRESETS[1], { "Fast: Repeated Letters": -40, Typing: 1, "Start at Character": 0 }), text, { record: true }));
+  const eb = lazyTyperRun(io(20, defaults(saved.values), text, { record: true }));
+  check("old preset: types as 1.2.0 did", JSON.stringify(ea) === JSON.stringify(eb));
+  const fresh = Object.assign({}, rig.TYPING_PRESETS[0].values, { "Fast: Repeated Letters": -40 });
+  check("a current preset keeps a negative Repeated Letters", !rig.upgradeValues(fresh) && fresh["Fast: Repeated Letters"] === -40);
+}
+
+// 16. Presets type as many characters a second at any frame rate.
+{
+  const text = "Hello there, this is a typing test. It should feel natural!";
+  const cps = (p, fps) => {
+    const v = defaults(rig.valuesForFps(p.values, p.fps, fps));
+    const ev = lazyTyperRun(io(60, v, text, { fd: 1 / fps, record: true }));
+    return text.length / ev[ev.length - 1][0];
+  };
+  for (const p of rig.TYPING_PRESETS) {
+    const at30 = cps(p, 30);
+    const off = [24, 25, 29.97, 50, 60].map((fps) => [fps, cps(p, fps)]).filter(([, c]) => Math.abs(c / at30 - 1) > 0.03);
+    check(`${p.name}: same characters a second at 24-60 fps`, !off.length, `${at30.toFixed(2)} at 30; ${off.map(([f, c]) => `${c.toFixed(2)} at ${f}`).join(", ")}`);
+  }
+  const v = rig.valuesForFps({ "Frames Per Character": 2.2, "Total Duration": 90, Variance: 15 }, 30, 24);
+  check("24 fps: frames scaled, the rest kept", v["Frames Per Character"] === 1.76 && v["Total Duration"] === 72 && v.Variance === 15, JSON.stringify(v));
+  const same = rig.valuesForFps(rig.TYPING_PRESETS[1].values, 30, 30);
+  check("30 fps: values untouched", JSON.stringify(same) === JSON.stringify(rig.TYPING_PRESETS[1].values));
+  check("a preset saved at 25 fps doubles its frames at 50", rig.valuesForFps({ "Frames Per Character": 1.5 }, 25, 50)["Frames Per Character"] === 3);
+  check("no frame rate means 30", rig.valuesForFps({ "Frames Per Character": 3 }, undefined, 60)["Frames Per Character"] === 6);
+  const hostCtx = {};
+  vm.createContext(hostCtx);
+  vm.runInContext(fs.readFileSync(new URL("../host/host.jsx", import.meta.url), "utf8"), hostCtx);
+  const cases = [[rig.TYPING_PRESETS[0].values, 30, 24], [rig.TYPING_PRESETS[2].values, 30, 59.94], [{ "Frames Per Character": 1.7083 }, 25, 30], [rig.TYPING_PRESETS[1].values, undefined, 50]];
+  check("host and panel convert alike", cases.every(([vals, from, to]) =>
+    JSON.stringify(hostCtx.LT.forComp(rig.TEXT_CONTROLS, vals, from, to)) === JSON.stringify(rig.valuesForFps(vals, from, to))));
+}
+
+// 17. The newer controls: last character, capitals and digits in a row, line breaks in stages,
+// same finger, repeated letters both ways.
+{
+  const base = flat({ "Frames Per Character": 2 });
+  const gap = (vals, text, i) => {
+    const ev = events(Object.assign({}, base, vals), text);
+    const at = (k) => ev.find((e) => e[1] === k)[0];
+    return at(i + 1) - at(i);
+  };
+  const gaps = (vals, text) => {
+    const ev = events(Object.assign({}, base, vals), text);
+    return ev.slice(1).map((e, i) => e[0] - ev[i][0]).join(",");
+  };
+  // Last character: only the last key that is not a space or line break.
+  check("last character: the closing mark waits", gaps({ "Slow: Last Character": 100 }, "abc.") === "2,2,4", gaps({ "Slow: Last Character": 100 }, "abc."));
+  check("last character: trailing spaces and breaks do not count", gaps({ "Slow: Last Character": 100 }, "ab!\r ") === "2,4,2,2", gaps({ "Slow: Last Character": 100 }, "ab!\r "));
+  // Capitals and digits in a row: the first keeps its slow-down, the rest lose that share of it.
+  const caps = { "Slow: Capitals": 100 };
+  check("in a row at 0: every capital slow (as 1.2.0)", gaps(caps, "xNASA") === "4,4,4,4", gaps(caps, "xNASA"));
+  check("capitals in a row 100: only the first slow", gaps(Object.assign({ "Fast: Capitals in a Row": 100 }, caps), "xNASA") === "4,2,2,2",
+    gaps(Object.assign({ "Fast: Capitals in a Row": 100 }, caps), "xNASA"));
+  check("capitals in a row 50: the rest half as slow", gap(Object.assign({ "Fast: Capitals in a Row": 50 }, caps), "xNASA", 2) === 3);
+  check("capitals in a row: above 100 acts as 100", gaps(Object.assign({ "Fast: Capitals in a Row": 300 }, caps), "xNASA") === "4,2,2,2");
+  check("capitals in a row: after a small letter it is a first", gaps(Object.assign({ "Fast: Capitals in a Row": 100 }, caps), "xNaSA") === "4,2,4,2",
+    gaps(Object.assign({ "Fast: Capitals in a Row": 100 }, caps), "xNaSA"));
+  check("capitals in a row: nothing to take away without Slow: Capitals", gaps({ "Fast: Capitals in a Row": 100 }, "xNASA") === "2,2,2,2");
+  const nums = { "Slow: Numbers": 100, "Fast: Numbers in a Row": 100 };
+  check("numbers in a row: 2026", gaps(nums, "x2026") === "4,2,2,2", gaps(nums, "x2026"));
+  check("numbers in a row: capitals are not digits", gaps(Object.assign({ "Slow: Capitals": 100 }, nums), "x2A3") === "4,4,4", gaps(Object.assign({ "Slow: Capitals": 100 }, nums), "x2A3"));
+  // Line breaks in stages: before Return, after it, and each extra Return.
+  check("before line break: the break itself waits", gaps({ "Slow: Before Line Break": 100 }, "ab\rcd") === "2,4,2,2", gaps({ "Slow: Before Line Break": 100 }, "ab\rcd"));
+  check("before line break: only the first of several", gaps({ "Slow: Before Line Break": 100 }, "ab\r\rcd") === "2,4,2,2,2", gaps({ "Slow: Before Line Break": 100 }, "ab\r\rcd"));
+  check("new line: after each break (as 1.2.0)", gaps({ "Slow: New Line": 100 }, "ab\r\rcd") === "2,2,4,4,2", gaps({ "Slow: New Line": 100 }, "ab\r\rcd"));
+  check("empty lines: slower", gaps({ "Slow: New Line": 100, "Slow/Fast: Empty Lines": 100 }, "ab\r\rcd") === "2,2,8,4,2",
+    gaps({ "Slow: New Line": 100, "Slow/Fast: Empty Lines": 100 }, "ab\r\rcd"));
+  check("empty lines: faster", gaps({ "Slow: New Line": 100, "Slow/Fast: Empty Lines": -100 }, "ab\r\r\rcd") === "2,2,2,2,4,2",
+    gaps({ "Slow: New Line": 100, "Slow/Fast: Empty Lines": -100 }, "ab\r\r\rcd"));
+  // Same finger, different key (QWERTY touch typing).
+  const finger = { "Slow: Same Finger": 100 };
+  check("same finger: e then d", gap(finger, "xed", 2) === 4);
+  check("same finger: r t, u n, o l, k i, a z", ["xrt", "xun", "xol", "xki", "xaz"].every((s) => gap(finger, s, 2) === 4));
+  check("same finger: capitals count", gap(finger, "xEd", 2) === 4);
+  check("same finger: not the same key", gap(finger, "xee", 2) === 2);
+  check("same finger: not another finger", ["xek", "xed".replace("d", "f"), "xpq", "x1d"].every((s) => gap(finger, s, 2) === 2));
+  check("same finger: not across a space", gap(finger, "e d", 2) === 2);
+  // Repeated letters both ways.
+  check("repeated letters: below 0 slows down", gap({ "Fast: Repeated Letters": -100 }, "xll", 2) === 4);
+  check("repeated letters: above 0 still speeds up", gap({ "Fast: Repeated Letters": 100 }, "xll", 2) === 1);
 }
 
 // 12. The expressions compile and the engine copy behaves like the original.

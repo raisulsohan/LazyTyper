@@ -69,6 +69,9 @@ Frames Per Character instead to speed up or slow down inside a run.
 - **Pauses in Total Duration mode** start a new run, which shares the duration out again over what
   is left: the take then lasts longer than the duration.
 - **Comp frame rate**: both controls count frames, so the same values type faster in a 60 fps comp.
+  Presets take care of it: applying one (or creating a rig with it) converts both to the comp's frame
+  rate, so it types as many characters a second at any rate ([chapter 5](05-typing-presets.md#frame-rates)).
+  A value you type in yourself is not converted.
 
 ## Related
 

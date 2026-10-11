@@ -22,10 +22,15 @@ rhythm stays natural, and it stays natural when you change the text.
 - **Base speed** as *Frames Per Character* or as a *Total Duration* for the whole text.
 - **Variance**: how often a key comes late, repeatable through a random seed.
 - **Slow down** controls: capitals, numbers, symbols, punctuation, after punctuation,
-  sentence ends, new lines, word starts, long words, hard-to-reach letters.
-- **Speed up** controls: repeated letters, common letter pairs, common words, momentum inside a word.
-- **Slow down or speed up** controls: spaces, letters typed with the same hand, fatigue over the text.
+  sentence ends, the last character (a closing "!" with a beat), before and after a line break,
+  word starts, long words, hard-to-reach letters, two letters typed by the same finger.
+- **Speed up** controls: repeated letters (or slow them down), capitals and digits after the first
+  in a row ("NASA", "2026"), common letter pairs, common words, momentum inside a word.
+- **Slow down or speed up** controls: spaces, empty lines, letters typed with the same hand,
+  fatigue over the text.
 - **Three typing presets** (Very Fast, Average, Hunt & Peck) and your own, saved from any rig.
+  A preset types as many characters a second at any frame rate (24, 25, 30, 50, 60 fps…), and
+  the panel shows how many.
 - **Every control can be keyframed**: change speed mid-sentence, stop, delete, type again.
 - **Pauses** where you want them: a *Pause* layer marker; drag its end to set the length.
 - **Erase** everything or the last few characters, backspace by backspace, then retype.
@@ -75,8 +80,14 @@ On the **text layer** (Effect Controls):
 | Frames Per Character / Total Duration | The base speed. |
 | Variance, Random Seed | How likely a key comes late (by 25-150 %), and which keys. |
 | Slow: … | 100 % makes those characters take twice as long. |
+| Slow: Last Character | Waits before the text's last character (not counting spaces and line breaks after it). |
+| Slow: Before Line Break, Slow: New Line | The wait before Return is pressed, and the wait after it. |
+| Slow: Same Finger | Two letters in a row on different keys typed by the same finger (QWERTY touch typing: *ed*, *un*, *lo*). |
 | Fast: … | 100 % makes those characters twice as fast. |
+| Fast: Repeated Letters | Also below 0: then a double letter slows down (a fast typist's stumble). |
+| Fast: Capitals in a Row, Fast: Numbers in a Row | The keys after the first in a row ("NASA", "2026") lose this share of *Slow: Capitals* or *Slow: Numbers*; at 100 % they type like small letters. |
 | Slow/Fast: … | Positive slows down, negative speeds up. |
+| Slow/Fast: Empty Lines | Each extra Return in a row, on top of *Slow: New Line*. |
 | Characters Shown | The result. *Bake* turns it into keyframes. |
 
 **Matching a typist:** a fast typist has a quick base speed, low variance, a few
@@ -90,7 +101,8 @@ Bottom Right, Bottom Left, X Offset, Y Offset.
 ## The panel
 
 - **Typing speed**: apply a preset to the selected rigs, see the rhythm it gives the
-  selected text, save a rig's settings as your own preset.
+  selected text and how many characters a second, save a rig's settings as your own preset
+  (it keeps the comp's frame rate, and is converted for comps at other rates).
 - **At the playhead**: *Start typing*, *Stop typing*, *Add pause*, *Erase* (everything or
   the last N characters over N frames).
 - **Rig**: *Refresh*, *Bake* (Shift+click: unbake), *Remove* (the cursor and guide go too).
@@ -107,6 +119,8 @@ Delete and retype: *Stop typing*, *Erase*, keyframe the new Source Text, *Start 
   several times faster than Legacy ExtendScript; baking makes any rig instant.
 - A rig is made of ordinary expression controls, a text animator and expressions. Sending a
   project to someone without LazyTyper is fine.
+- A rig made with an earlier version keeps typing exactly as it did. **Refresh** gives it the
+  newer controls, at values that change nothing until you set them.
 
 ## Building from source
 

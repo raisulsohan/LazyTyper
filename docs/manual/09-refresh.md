@@ -36,7 +36,9 @@ A Dynamic rig follows text changes by itself, so changing its words never needs 
 ## What Refresh does
 
 - Writes every expression of the rig again (useful after updating LazyTyper, too).
-- Adds any control a newer LazyTyper has and the rig lacks, leaving your values alone.
+- Adds any control a newer LazyTyper has and the rig lacks, in its place in Effect Controls and at a
+  value that changes nothing, leaving your values alone (a rig made with 1.2.0 gets the six controls
+  of chapters 17 to 19, and keeps its timing).
 - Measures the font where the time indicator is, and for a Stable rig the cursor's points at every
   Source Text keyframe.
 - Makes the guide layer of a Dynamic rig again.

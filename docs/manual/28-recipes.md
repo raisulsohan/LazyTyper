@@ -44,7 +44,8 @@ they want, so Very Fast suits them; for someone thinking it over, add a Pause ma
    for the indent.
 2. Rig it with the **Box** cursor.
 3. Code is full of symbols, brackets and commas: if it crawls, lower **Slow: Symbols** (chapter 16)
-   and **Slow: After Punctuation** (chapter 17). Each new line waits for **Slow: New Line**.
+   and **Slow: After Punctuation** (chapter 17). Each new line waits for **Slow: New Line**, and
+   blank lines between blocks for **Slow/Fast: Empty Lines** (below 0: quicker).
 
 ## A paragraph that wraps
 

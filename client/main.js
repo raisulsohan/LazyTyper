@@ -78,6 +78,19 @@
   if (!saved.typing) saved.typing = [];
   if (!saved.cursor) saved.cursor = [];
 
+  /*
+   * Typing presets saved by 1.2.0 and earlier have no frame rate (they were made for 30 fps comps,
+   * as far as anyone can tell) and none of the newer controls: rig.js brings them up to date so
+   * they type as before. The file is rewritten once, after a copy of the old one is kept.
+   */
+  (function () {
+    var changed = false;
+    for (var i = 0; i < saved.typing.length; i++) if (RIG.upgradeTypingPreset(saved.typing[i])) changed = true;
+    if (!changed) return;
+    if (loadJson("presets-before-1.3.json", null) === null) saveJson("presets-before-1.3.json", loadJson("presets.json", saved));
+    saveJson("presets.json", saved);
+  })();
+
   function persistSettings() { saveJson("settings.json", settings); }
 
   /* ---------------- host bridge ---------------- */
@@ -146,9 +159,9 @@
     var builtIn = kind === "typing" ? RIG.TYPING_PRESETS : RIG.CURSOR_PRESETS;
     var out = [];
     var i;
-    for (i = 0; i < builtIn.length; i++) out.push({ id: "b:" + builtIn[i].name, name: builtIn[i].name, values: builtIn[i].values, builtIn: true });
+    for (i = 0; i < builtIn.length; i++) out.push({ id: "b:" + builtIn[i].name, name: builtIn[i].name, values: builtIn[i].values, fps: builtIn[i].fps, builtIn: true });
     var mine = saved[kind];
-    for (i = 0; i < mine.length; i++) out.push({ id: "u:" + mine[i].name, name: mine[i].name, values: mine[i].values, builtIn: false });
+    for (i = 0; i < mine.length; i++) out.push({ id: "u:" + mine[i].name, name: mine[i].name, values: mine[i].values, fps: mine[i].fps, builtIn: false });
     return out;
   }
 
@@ -323,14 +336,15 @@
     var canvas = $("rhythmCanvas");
     if (!canvas || !canvas.getContext) return;
     var preset = findPreset("typing", $("typingPreset").value || settings.typingPreset);
+    var fps = info.fps || RIG.PRESET_FPS;
+    var fd = 1 / fps;
     var values = {};
     var i;
     for (i = 0; i < RIG.TEXT_CONTROLS.length; i++) values[RIG.TEXT_CONTROLS[i].name] = RIG.TEXT_CONTROLS[i].value;
-    for (var k in preset.values) if (preset.values.hasOwnProperty(k)) values[k] = preset.values[k];
+    var scaled = RIG.valuesForFps(preset.values, preset.fps, fps);
+    for (var k in scaled) if (scaled.hasOwnProperty(k)) values[k] = scaled[k];
     var layer = firstRig() || (info.layers && info.layers[0]);
     var text = layer && layer.text ? layer.text : SAMPLE;
-    var fps = info.fps || 30;
-    var fd = 1 / fps;
     var ev = window.lazyTyperRun({
       time: Math.max(10, text.length * 2), fd: fd, start: 0, record: true, pauses: [],
       num: function (n) { return values[n]; },
@@ -344,6 +358,7 @@
     var ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, w, h);
+    renderRate(preset, values, fps, text, ev);
     if (!ev.length) return;
     var end = ev[ev.length - 1][0] || 1;
     // Baseline and second ticks.
@@ -370,9 +385,29 @@
       ctx.fillStyle = CLASS_COLORS[classOf(c)];
       ctx.fillRect(x - 1, h - 11 - bh, 2, bh);
     }
-    var secs = end;
-    $("rhythmTotal").textContent = (layer && layer.text ? "" : "sample · ") + secs.toFixed(1) + " s · " +
-      Math.round(text.length / Math.max(0.01, secs)) + " char/s";
+    $("rhythmTotal").textContent = (layer && layer.text ? "" : "sample · ") + end.toFixed(1) + " s";
+  }
+
+  function trim(n) {
+    return String(Math.round(n * 100) / 100);
+  }
+
+  /*
+   * Under the preset: how many characters a second it types (the rhythm strip's text over its
+   * whole take) and what its base speed is in this comp's frames; a preset converts its frame counts to the
+   * comp's frame rate, so the characters a second stay the same at any rate.
+   */
+  function renderRate(preset, values, fps, text, ev) {
+    var el = $("presetRate");
+    var secs = ev.length ? ev[ev.length - 1][0] : 0;
+    var cps = ev.length > 1 && secs > 0 ? ev[ev.length - 1][1] / secs : 0;
+    var rate = cps >= 10 ? String(Math.round(cps)) : (Math.round(cps * 10) / 10).toFixed(1);
+    var td = Math.round(values["Speed Mode"]) === 2;
+    var base = td ? "Total Duration " + trim(values["Total Duration"]) + " frames" :
+      trim(values["Frames Per Character"]) + " frames per character";
+    el.textContent = (cps > 0 ? rate + " characters a second" : "No typing to measure") + " · " + base + " at " + trim(fps) + " fps";
+    el.title = "Measured on the rhythm strip's text. The preset was made at " + trim(preset.fps || RIG.PRESET_FPS) +
+      " fps; LazyTyper converts its frame counts to the comp's frame rate, so it types as fast at any rate.";
   }
 
   /* ---------------- cursor previews ---------------- */
@@ -479,6 +514,7 @@
       host("createRig", rigArgs({
         type: settings.rigType,
         typing: typing.values,
+        typingFps: typing.fps,
         cursor: !!cursor,
         cursorValues: cursor ? cursor.values : {}
       }), function (res) {
@@ -515,7 +551,7 @@
 
   function onApplyTyping() {
     var p = findPreset("typing", $("typingPreset").value);
-    simple("btnApplyTyping", "applyValues", { kind: "typing", values: p.values }, "Applied “" + p.name + "”.");
+    simple("btnApplyTyping", "applyValues", { kind: "typing", values: p.values, fps: p.fps }, "Applied “" + p.name + "”.");
   }
 
   function onApplyCursor() {
@@ -555,13 +591,18 @@
       }
       var list = saved[kind];
       var replaced = false;
+      var entry = { name: name, values: res.values };
+      if (kind === "typing") {
+        entry.fps = res.fps || RIG.PRESET_FPS;
+        RIG.upgradeValues(entry.values);
+      }
       for (var i = 0; i < list.length; i++) {
         if (list[i].name === name) {
-          list[i].values = res.values;
+          list[i] = entry;
           replaced = true;
         }
       }
-      if (!replaced) list.push({ name: name, values: res.values });
+      if (!replaced) list.push(entry);
       if (saveJson("presets.json", saved)) {
         if (kind === "typing") settings.typingPreset = "u:" + name;
         else settings.cursorPreset = "u:" + name;
@@ -704,7 +745,7 @@
     if (name === "readValues") {
       var v = {};
       for (var i = 0; i < a.keys.length; i++) v[a.keys[i]] = 1;
-      return { ok: true, values: v, layer: "Headline" };
+      return { ok: true, values: v, layer: "Headline", fps: 30 };
     }
     if (name === "createRig") return { ok: true, made: ["Headline"], skipped: [], problems: [] };
     return { ok: true, done: ["Headline"] };

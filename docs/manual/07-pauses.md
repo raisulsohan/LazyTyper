@@ -68,5 +68,5 @@ ends at frame 212 instead of 233; with 45 frames it ends at 242.
 ## Related
 
 - [6. Start typing and Stop typing](06-start-stop.md)
-- [17. Slow: After Punctuation, Sentence End and New Line](17-slow-after.md)
+- [17. Slow: After Punctuation, Sentence End, Last Character and line breaks](17-slow-after.md)
 - [28. Recipes](28-recipes.md): speed keyed to a voice-over.

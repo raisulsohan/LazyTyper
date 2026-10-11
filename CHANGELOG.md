@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+Rigs and presets made with 1.2.0 keep typing exactly as before: the new controls start at
+values that change nothing, and Refresh, Bake and Unbake add them to an older rig.
+
+- **Presets type as fast at any frame rate.** A typing preset keeps the frame rate it was made
+  at (the built-in ones 30 fps; a saved one, its comp's) and converts *Frames Per Character* and
+  *Total Duration* to the comp's rate when it is applied or used to create a rig: Very Fast types
+  about 14 characters a second at 24, 25, 30, 50 or 60 fps (it was 11 at 24 fps and 27 at 60).
+  Presets saved with 1.2.0 or earlier count as made at 30 fps; a copy of the old file is kept
+  as `presets-before-1.3.json`. Under the preset, the panel shows how many characters a second
+  it types and what that is in this comp's frames.
+- **Slow: Last Character**: an extra wait before the last character of the text (spaces and
+  line breaks after it don't count), so a closing "." or "!" lands with a beat.
+- **Fast: Capitals in a Row** and **Fast: Numbers in a Row**: in "NASA" or "2026" the first
+  key keeps all of *Slow: Capitals* or *Slow: Numbers* and the ones after it lose this share of
+  it (100 %: they type like small letters).
+- **Line breaks in stages**: **Slow: Before Line Break** is the wait before Return is pressed
+  (*Slow: New Line* is still the wait after it), and **Slow/Fast: Empty Lines** makes each extra
+  Return in a row slower or faster.
+- **Slow: Same Finger**: two letters in a row typed by the same finger on different keys (QWERTY
+  touch typing: "ed", "un", "lo"), which slows fast typists down.
+- **Fast: Repeated Letters** works both ways: below 0 a double letter slows down (fast typists
+  stumble on it), above 0 it speeds up as before. A rig or preset from 1.2.0 with a value below
+  0, which did nothing then, gets 0 when it is brought up to date.
+- The built-in presets use the new controls: Very Fast slows on double letters and same-finger
+  pairs, Hunt & Peck speeds up on double letters; their base speeds moved a little (Very Fast
+  2.05 frames per character, Average 2.9) so each types as many characters a second as before.
+- Refresh puts controls it adds in their place in Effect Controls, not at the end.
+
 ## 1.2.0 - 2026-10-11
 
 - Mixed font sizes in a Stable rig: the cursor takes the size of the last character typed (it

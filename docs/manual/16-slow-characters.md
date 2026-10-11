@@ -52,8 +52,9 @@ For "Order #42: ships to NYC & Rome (today)!" (39 characters, 30 fps):
 
 ## Tips and pitfalls
 
-- **Text in capitals** ("NYC", a shouted line) gets slow everywhere: lower Slow: Capitals for an
-  all-caps title.
+- **Text in capitals** ("NYC", a shouted line) gets slow everywhere: raise **Fast: Capitals in a
+  Row** (chapter 19) so only the first capital of each run waits, or lower Slow: Capitals for an
+  all-caps title. **Fast: Numbers in a Row** does the same for "2026".
 - **Code and handles** are full of symbols: lower Slow: Symbols, or they crawl.
 - **Punctuation and the pause after it are separate**: this control slows the comma itself; the
   breath after it is Slow: After Punctuation (chapter 17).
@@ -61,6 +62,7 @@ For "Order #42: ships to NYC & Rome (today)!" (39 characters, 30 fps):
 
 ## Related
 
-- [17. Slow: After Punctuation, Sentence End and New Line](17-slow-after.md)
-- [18. Slow: Word Start, Long Words and Rare Letters](18-slow-words.md)
+- [17. Slow: After Punctuation, Sentence End, Last Character and line breaks](17-slow-after.md)
+- [18. Slow: Word Start, Long Words, Rare Letters and Same Finger](18-slow-words.md)
+- [19. Fast: Repeated Letters, Capitals and Numbers in a Row, Common Pairs, Common Words and Word Momentum](19-fast.md): Capitals in a Row and Numbers in a Row
 - [5. Typing presets](05-typing-presets.md): what each preset sets them to.

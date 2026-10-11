@@ -413,6 +413,8 @@ optgroup { background: var(--card); color: var(--muted); font-style: normal; }
 
 /* ---------- rhythm preview ---------- */
 
+.card > .preset-rate { margin-top: 4px; font-size: 10px; color: var(--text-2); }
+
 .rhythm {
   background: var(--input);
   border: 1px solid var(--line);
