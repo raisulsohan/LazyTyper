@@ -127,8 +127,14 @@ async function nudge(s) {
   await s.gif("28-nudged", { duration: 4, fps: 30, width: 720, swatch: SWATCH });
 }
 
+// One or a few recipes only: node tools/manual/capture.mjs --only 28-recipes --recipe mixed[,chat]
+const arg = process.argv.indexOf("--recipe");
+const only = arg > 0 ? process.argv[arg + 1].split(",") : null;
+
 export async function run(s) {
-  for (const recipe of [searchBar, chat, code, scripts, mixed, voiceOver, nudge]) {
+  const recipes = [searchBar, chat, code, scripts, mixed, voiceOver, nudge];
+  if (only) for (const name of only) if (!recipes.some((r) => r.name === name)) throw new Error(`no recipe ${name}; there are ${recipes.map((r) => r.name).join(", ")}`);
+  for (const recipe of recipes.filter((r) => !only || only.includes(r.name))) {
     console.log(`  recipe: ${recipe.name}`);
     await recipe(s);
     await wait(300);
